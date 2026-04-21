@@ -1,0 +1,25 @@
+# RegionalAR Desktop - Python Dependencies
+# =========================================
+# Install all: pip install -r requirements.txt
+#
+# Or run install_regionalar.bat for guided setup.
+
+# ── Core (required) ──────────────────────────
+numpy
+pydicom
+SimpleITK
+
+# ── HD processing (recommended) ─────────────
+scipy
+scikit-image
+trimesh
+fast_simplification
+blosc2
+
+# ── AI Segmentation (optional, ~2-3 GB) ─────
+# Install PyTorch CPU-only first for smaller download:
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+# Or with CUDA support (if you have an NVIDIA GPU):
+#   pip install torch --index-url https://download.pytorch.org/whl/cu121
+torch
+TotalSegmentator
