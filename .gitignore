@@ -48,3 +48,32 @@ crashlytics-build.properties
 # Volume data (large binary files)
 *.vol
 *.ovol
+
+# Prebuilt binaries & archives (upload via GitHub Releases instead)
+*.exe
+*.zip
+*.tar.gz
+
+# Screenshots & image working files
+/screenshots/
+/screenshots_white/
+/panel_crops/
+/1000002*.png
+
+# Build artifacts
+/dist/
+/build_log/
+*.spec
+
+# Prebuilt desktop exe (upload via GitHub Releases instead)
+RegionalAR-Desktop/*.exe
+
+# PyInstaller / Python cache
+__pycache__/
+*.pyc
+
+# License files (user-specific, should not be committed)
+.regionalar_license
+
+# Misc build/deploy scripts and logs
+build_output.txt
