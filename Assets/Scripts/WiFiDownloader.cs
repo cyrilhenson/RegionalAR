@@ -31,6 +31,8 @@ using UnityEngine;
 using UnityEngine.Networking;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
+using Oculus.Platform;
+using Oculus.Platform.Models;
 
 public class WiFiDownloader : MonoBehaviour
 {
@@ -161,6 +163,20 @@ public class WiFiDownloader : MonoBehaviour
     string        _activeScanName;
     List<ScanEntry> _scanEntries = new List<ScanEntry>();
 
+    // ── License Panel ───────────────────────────────────────────
+    Canvas        _licCanvas;
+    Transform     _licTF;
+    GameObject    _licBG;
+    bool          _licOpen;
+    GameObject    _licProxy;
+    BoxCollider   _licProxyCol;
+
+    // ── IAP (In-App Purchase) ───────────────────────────────────
+    const string  IAP_SKU = "desktop_license";   // Must match SKU in Meta Developer Dashboard
+    bool          _platformInitialized;
+    bool          _desktopLicenseOwned;           // true once purchase is confirmed
+    bool          _iapCheckInProgress;
+
     struct ScanEntry
     {
         public string name;
@@ -217,12 +233,15 @@ public class WiFiDownloader : MonoBehaviour
         EnsureHandTracking();
 
         BuildLaserPointers();
+        InitializePlatformSDK();
         try { BuildControlPanel(); }
         catch (Exception ex) { Debug.LogError($"[RegionalAR] BuildControlPanel FAILED: {ex.Message}\n{ex.StackTrace}"); }
         try { BuildWiFiPanel(); }
         catch (Exception ex) { Debug.LogError($"[RegionalAR] BuildWiFiPanel FAILED: {ex.Message}\n{ex.StackTrace}"); }
         try { BuildLibPanel(); }
         catch (Exception ex) { Debug.LogError($"[RegionalAR] BuildLibPanel FAILED: {ex.Message}\n{ex.StackTrace}"); }
+        try { BuildLicensePanel(); }
+        catch (Exception ex) { Debug.LogError($"[RegionalAR] BuildLicensePanel FAILED: {ex.Message}\n{ex.StackTrace}"); }
         try { BuildHint(); }
         catch (Exception ex) { Debug.LogError($"[RegionalAR] BuildHint FAILED: {ex.Message}\n{ex.StackTrace}"); }
 
@@ -233,6 +252,9 @@ public class WiFiDownloader : MonoBehaviour
         // Auto-open the control panel on startup so the user sees it immediately
         if (!_ctrlOpen)
             ToggleCtrlPanel();
+
+        // Auto-load the bundled Head & Neck sample on startup
+        StartCoroutine(AutoLoadBundledSample());
 
         Debug.Log($"[RegionalAR] WiFiDownloader ready. BtnCols={_btnCols.Count} ctrlTF={_ctrlTF != null} ctrlBG={_ctrlBG != null} wifiTF={_wifiTF != null}");
     }
@@ -647,6 +669,8 @@ public class WiFiDownloader : MonoBehaviour
                     target = _wifiTF;
                 else if (_libOpen && _libTF != null && Vector3.Distance(lPos, _libTF.position) < 0.4f)
                     target = _libTF;
+                else if (_licOpen && _licTF != null && Vector3.Distance(lPos, _licTF.position) < 0.4f)
+                    target = _licTF;
                 else if (_hintRoot != null && _hintRoot.activeSelf
                          && Vector3.Distance(lPos, _hintRoot.transform.position) < 0.4f)
                     target = _hintRoot.transform;
@@ -788,6 +812,7 @@ public class WiFiDownloader : MonoBehaviour
         if (_ctrlOpen) SnapPanelInFront(_ctrlTF, _ctrlCanvas, _ctrlProxy, _ctrlProxyCol);
         if (_wifiOpen) SnapPanelInFront(_wifiTF, _wifiCanvas, _wifiProxy, _wifiProxyCol);
         if (_libOpen)  SnapPanelInFront(_libTF,  _libCanvas,  _libProxy,  _libProxyCol);
+        if (_licOpen)  SnapPanelInFront(_licTF,  _licCanvas,  _licProxy,  _licProxyCol);
         PositionHintInFront();
     }
 
@@ -1085,7 +1110,8 @@ public class WiFiDownloader : MonoBehaviour
 
                 bool isProxy = (_ctrlOpen && _ctrlProxyCol != null && hit.collider == _ctrlProxyCol)
                             || (_wifiOpen && _wifiProxyCol != null && hit.collider == _wifiProxyCol)
-                            || (_libOpen  && _libProxyCol  != null && hit.collider == _libProxyCol);
+                            || (_libOpen  && _libProxyCol  != null && hit.collider == _libProxyCol)
+                            || (_licOpen  && _licProxyCol  != null && hit.collider == _licProxyCol);
 
                 if (isProxy)
                 {
@@ -1320,7 +1346,8 @@ public class WiFiDownloader : MonoBehaviour
 
                 bool isProxy = (_ctrlOpen && _ctrlProxyCol != null && hit.collider == _ctrlProxyCol)
                             || (_wifiOpen && _wifiProxyCol != null && hit.collider == _wifiProxyCol)
-                            || (_libOpen  && _libProxyCol  != null && hit.collider == _libProxyCol);
+                            || (_libOpen  && _libProxyCol  != null && hit.collider == _libProxyCol)
+                            || (_licOpen  && _licProxyCol  != null && hit.collider == _licProxyCol);
 
                 var dotR = dot.GetComponent<Renderer>();
                 if (dotR != null)
@@ -1954,6 +1981,53 @@ public class WiFiDownloader : MonoBehaviour
         try { File.WriteAllText(markerPath, "1"); } catch { }
     }
 
+    IEnumerator AutoLoadBundledSample()
+    {
+        // Wait for InstallBundledSample to finish (it runs as a coroutine too)
+        string volPath = Path.Combine(ScanLibraryDir(), SAMPLE_NAME + ".vol");
+
+        // Wait up to 10 seconds for the sample to become available
+        float waited = 0f;
+        while (!File.Exists(volPath) && waited < 10f)
+        {
+            yield return new WaitForSeconds(0.5f);
+            waited += 0.5f;
+        }
+
+        if (!File.Exists(volPath))
+        {
+            Debug.LogWarning("[RegionalAR] AutoLoad: bundled sample not found, skipping.");
+            yield break;
+        }
+
+        // Don't auto-load if user already loaded something via WiFi this session
+        if (_downloadedThisSession)
+        {
+            Debug.Log("[RegionalAR] AutoLoad: skipping — user already downloaded a scan.");
+            yield break;
+        }
+
+        var vr = volumeRenderer ?? FindObjectOfType<VolumeRenderer>();
+        if (vr == null)
+        {
+            Debug.LogWarning("[RegionalAR] AutoLoad: VolumeRenderer not found.");
+            yield break;
+        }
+
+        try
+        {
+            vr.ReloadVolumeSync(volPath);
+            _activeScanName = SAMPLE_NAME;
+            vr.PositionInFrontOfUser();
+            SetStatus($"Loaded: {SAMPLE_NAME}");
+            Debug.Log($"[RegionalAR] Auto-loaded bundled sample: {SAMPLE_NAME}");
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning($"[RegionalAR] AutoLoad failed: {ex.Message}");
+        }
+    }
+
     // ═════════════════════════════════════════════════════════════
     //  SCAN LIBRARY
     // ═════════════════════════════════════════════════════════════
@@ -2471,6 +2545,369 @@ public class WiFiDownloader : MonoBehaviour
     }
 
     // ═════════════════════════════════════════════════════════════
+    //  PLATFORM SDK INITIALIZATION + IAP
+    // ═════════════════════════════════════════════════════════════
+
+    void InitializePlatformSDK()
+    {
+        try
+        {
+            if (!Core.IsInitialized())
+            {
+                Core.AsyncInitialize().OnComplete(OnPlatformInitialized);
+                Debug.Log("[RegionalAR] Platform SDK initializing...");
+            }
+            else
+            {
+                _platformInitialized = true;
+                CheckDesktopLicensePurchase();
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[RegionalAR] Platform SDK init failed: {ex.Message}");
+            // Fallback: allow license panel without IAP check (dev/testing)
+            _platformInitialized = false;
+        }
+    }
+
+    void OnPlatformInitialized(Message<PlatformInitialize> msg)
+    {
+        if (msg.IsError)
+        {
+            Debug.LogError($"[RegionalAR] Platform SDK init error: {msg.GetError().Message}");
+            _platformInitialized = false;
+            return;
+        }
+        _platformInitialized = true;
+        Debug.Log("[RegionalAR] Platform SDK initialized successfully");
+        CheckDesktopLicensePurchase();
+    }
+
+    void CheckDesktopLicensePurchase()
+    {
+        if (!_platformInitialized || _iapCheckInProgress) return;
+        _iapCheckInProgress = true;
+
+        try
+        {
+            IAP.GetViewerPurchases().OnComplete(OnPurchasesRetrieved);
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[RegionalAR] IAP check failed: {ex.Message}");
+            _iapCheckInProgress = false;
+        }
+    }
+
+    void OnPurchasesRetrieved(Message<PurchaseList> msg)
+    {
+        _iapCheckInProgress = false;
+
+        if (msg.IsError)
+        {
+            Debug.LogError($"[RegionalAR] Failed to get purchases: {msg.GetError().Message}");
+            // Fallback: try durable cache
+            try { IAP.GetViewerPurchasesDurableCache().OnComplete(OnPurchaseCacheRetrieved); }
+            catch (Exception ex) { Debug.LogError($"[RegionalAR] Durable cache also failed: {ex.Message}"); }
+            return;
+        }
+
+        CheckPurchaseList(msg.Data);
+    }
+
+    void OnPurchaseCacheRetrieved(Message<PurchaseList> msg)
+    {
+        if (msg.IsError)
+        {
+            Debug.LogError($"[RegionalAR] Durable cache error: {msg.GetError().Message}");
+            return;
+        }
+        CheckPurchaseList(msg.Data);
+    }
+
+    void CheckPurchaseList(PurchaseList purchases)
+    {
+        foreach (var purchase in purchases)
+        {
+            if (string.Equals(purchase.Sku, IAP_SKU, StringComparison.OrdinalIgnoreCase))
+            {
+                _desktopLicenseOwned = true;
+                Debug.Log("[RegionalAR] Desktop license IAP owned!");
+                return;
+            }
+        }
+        Debug.Log("[RegionalAR] Desktop license IAP not yet purchased");
+    }
+
+    void LaunchDesktopLicensePurchase()
+    {
+        if (!_platformInitialized)
+        {
+            Debug.LogError("[RegionalAR] Cannot purchase — Platform SDK not initialized");
+            return;
+        }
+
+        try
+        {
+            IAP.LaunchCheckoutFlow(IAP_SKU).OnComplete(OnCheckoutComplete);
+            Debug.Log($"[RegionalAR] Launching checkout for {IAP_SKU}...");
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[RegionalAR] Checkout failed: {ex.Message}");
+        }
+    }
+
+    void OnCheckoutComplete(Message<Purchase> msg)
+    {
+        if (msg.IsError)
+        {
+            string errMsg = msg.GetError().Message;
+            // user_canceled is not a real error — user just backed out
+            if (errMsg.Contains("user_canceled"))
+            {
+                Debug.Log("[RegionalAR] User canceled purchase");
+            }
+            else
+            {
+                Debug.LogError($"[RegionalAR] Purchase error: {errMsg}");
+            }
+            return;
+        }
+
+        // Purchase succeeded!
+        _desktopLicenseOwned = true;
+        Debug.Log($"[RegionalAR] Purchase complete: {msg.Data.Sku}");
+
+        // Close the purchase prompt and rebuild the license panel to show the key
+        if (_licOpen) ToggleLicensePanel();  // close
+        RebuildLicensePanel();
+        ToggleLicensePanel();                // re-open with key visible
+    }
+
+    // ═════════════════════════════════════════════════════════════
+    //  LICENSE PANEL — purchase prompt OR user code + license key
+    // ═════════════════════════════════════════════════════════════
+
+    void ToggleLicensePanel()
+    {
+        try
+        {
+            _licOpen = !_licOpen;
+            if (_licBG != null) _licBG.SetActive(_licOpen);
+            if (_licProxy != null) _licProxy.SetActive(_licOpen);
+            SetBtnColsActive(_licTF, _licOpen);
+            if (_licOpen)
+            {
+                CacheCamera();
+                SnapPanelInFront(_licTF, _licCanvas, _licProxy, _licProxyCol);
+                Camera cam = Cam();
+                if (cam != null)
+                {
+                    _licTF.position += cam.transform.right * 0.40f;
+                    var ls = _licTF.GetComponent<PanelStabilizer>();
+                    if (ls != null) ls.SnapToTarget();
+                }
+            }
+            Debug.Log($"[RegionalAR] License panel toggled: {_licOpen}");
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[RegionalAR] ToggleLicensePanel FAILED: {ex.Message}\n{ex.StackTrace}");
+        }
+    }
+
+    void BuildLicensePanel()
+    {
+        // ── Color palette (matches other panels) ──
+        Color panelBG      = new Color(0.02f, 0.02f, 0.04f, 0.95f);
+        Color borderCyan   = new Color(0.00f, 0.74f, 0.83f, 0.70f);
+        Color accentCyan   = new Color(0.00f, 0.74f, 0.83f);
+        Color accentOrange = new Color(1.00f, 0.42f, 0.21f);
+        Color textPrimary  = new Color(0.94f, 0.94f, 0.96f);
+        Color textSecond   = new Color(0.45f, 0.50f, 0.56f);
+        Color btnFill      = new Color(0.04f, 0.04f, 0.06f, 0.95f);
+
+        var panelRoot = new GameObject("RegionalAR_LicPanel");
+        _licCanvas = panelRoot.AddComponent<Canvas>();
+        _licCanvas.renderMode = RenderMode.WorldSpace;
+        _licCanvas.sortingOrder = 32;
+        panelRoot.AddComponent<PanelStabilizer>();
+        _licTF = panelRoot.transform;
+        Camera cam = Cam();
+        if (cam != null) _licCanvas.worldCamera = cam;
+
+        var crt = panelRoot.GetComponent<RectTransform>();
+        crt.sizeDelta = new Vector2(460, 340);
+        crt.pivot = new Vector2(0.5f, 0.5f);
+        panelRoot.transform.localScale = Vector3.one * 0.001f;
+
+        CreateProxy(out _licProxy, out _licProxyCol, 0.46f, 0.34f, "LicProxy");
+
+        _licBG = MakeRect(panelRoot.transform, "LicBG");
+        FillParent(_licBG);
+        _licBG.AddComponent<Image>().color = panelBG;
+
+        // ── Outer border ──
+        var borderFrame = MakeRect(_licBG.transform, "Border");
+        var bfRT = borderFrame.GetComponent<RectTransform>();
+        bfRT.anchorMin = Vector2.zero; bfRT.anchorMax = Vector2.one;
+        bfRT.offsetMin = Vector2.zero; bfRT.offsetMax = Vector2.zero;
+        borderFrame.AddComponent<Image>().color = borderCyan;
+        var innerFill = MakeRect(borderFrame.transform, "InnerFill");
+        var ifRT = innerFill.GetComponent<RectTransform>();
+        ifRT.anchorMin = Vector2.zero; ifRT.anchorMax = Vector2.one;
+        ifRT.offsetMin = new Vector2(1.5f, 1.5f); ifRT.offsetMax = new Vector2(-1.5f, -1.5f);
+        innerFill.AddComponent<Image>().color = panelBG;
+
+        // ── Header ──
+        var headerBG = MakeRect(_licBG.transform, "Header");
+        SetRectT(headerBG, new Vector2(0, 147), new Vector2(456, 34));
+        headerBG.AddComponent<Image>().color = new Color(0.03f, 0.03f, 0.05f, 0.98f);
+        MakeLbl(headerBG.transform, "DESKTOP LICENSE", 16, accentCyan, new Vector2(0, 0), new Vector2(300, 30));
+
+        var headerLine = MakeRect(_licBG.transform, "HeaderLine");
+        SetRectT(headerLine, new Vector2(0, 129), new Vector2(440, 1.5f));
+        headerLine.AddComponent<Image>().color = accentCyan;
+
+        // ── Close button (always present) ──
+        MakeClickableBtn(_licBG.transform, _licTF, "X",
+            new Color(0.60f, 0.08f, 0.05f, 0.95f), 14, new Vector2(206, 147), new Vector2(28, 28),
+            () => ToggleLicensePanel());
+
+        if (_desktopLicenseOwned)
+        {
+            // ═══ PURCHASED — show code + key ═══
+            BuildLicenseKeyDisplay(accentCyan, accentOrange, textSecond, btnFill);
+        }
+        else
+        {
+            // ═══ NOT PURCHASED — show purchase prompt ═══
+            BuildPurchasePrompt(accentCyan, accentOrange, textPrimary, textSecond, btnFill);
+        }
+
+        // Hidden on startup
+        _licBG.SetActive(false);
+        if (_licProxy != null) _licProxy.SetActive(false);
+        SetBtnColsActive(_licTF, false);
+        Debug.Log($"[RegionalAR] License panel built. Owned={_desktopLicenseOwned}");
+    }
+
+    void BuildLicenseKeyDisplay(Color accentCyan, Color accentOrange, Color textSecond, Color btnFill)
+    {
+        // ── Generate or retrieve the user code ──
+        string userCode = PlayerPrefs.GetString("RegionalAR_LicenseCode", "");
+        if (string.IsNullOrEmpty(userCode))
+        {
+            const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+            var sb = new System.Text.StringBuilder(6);
+            var rng = new System.Random();
+            for (int i = 0; i < 6; i++)
+                sb.Append(chars[rng.Next(chars.Length)]);
+            userCode = sb.ToString();
+            PlayerPrefs.SetString("RegionalAR_LicenseCode", userCode);
+            PlayerPrefs.Save();
+        }
+
+        string licenseKey = LicenseKeyGenerator.GenerateKey(userCode);
+
+        // ── Instructions ──
+        MakeLbl(_licBG.transform, "Enter these on the desktop app to activate:",
+                11, textSecond, new Vector2(0, 100), new Vector2(400, 20));
+
+        // ── Your Code ──
+        MakeLbl(_licBG.transform, "YOUR CODE",
+                10, accentCyan, new Vector2(0, 68), new Vector2(400, 18));
+        var codeLine = MakeRect(_licBG.transform, "CodeLine");
+        SetRectT(codeLine, new Vector2(0, 68), new Vector2(420, 1f));
+        codeLine.AddComponent<Image>().color = new Color(0f, 0.74f, 0.83f, 0.20f);
+
+        var codeBG = MakeRect(_licBG.transform, "CodeBG");
+        SetRectT(codeBG, new Vector2(0, 38), new Vector2(300, 40));
+        codeBG.AddComponent<Image>().color = new Color(0.06f, 0.06f, 0.08f, 0.95f);
+        MakeLbl(codeBG.transform, userCode,
+                24, accentOrange, new Vector2(0, 0), new Vector2(280, 36));
+
+        // ── License Key ──
+        MakeLbl(_licBG.transform, "LICENSE KEY",
+                10, accentCyan, new Vector2(0, 2), new Vector2(400, 18));
+        var keyLine = MakeRect(_licBG.transform, "KeyLine");
+        SetRectT(keyLine, new Vector2(0, 2), new Vector2(420, 1f));
+        keyLine.AddComponent<Image>().color = new Color(0f, 0.74f, 0.83f, 0.20f);
+
+        var keyBG = MakeRect(_licBG.transform, "KeyBG");
+        SetRectT(keyBG, new Vector2(0, -32), new Vector2(380, 40));
+        keyBG.AddComponent<Image>().color = new Color(0.06f, 0.06f, 0.08f, 0.95f);
+        MakeLbl(keyBG.transform, licenseKey ?? "ERROR",
+                20, accentOrange, new Vector2(0, 0), new Vector2(360, 36));
+
+        // ── How-to instructions ──
+        MakeLbl(_licBG.transform, "1. Open the desktop app\n2. Enter YOUR CODE as the username\n3. Enter the LICENSE KEY above\n4. Click Activate",
+                10, textSecond, new Vector2(0, -90), new Vector2(380, 60));
+
+        // ── Generate New Code button ──
+        MakeClickableBtn(_licBG.transform, _licTF, "NEW CODE",
+            btnFill, 10, new Vector2(-100, -142), new Vector2(120, 30),
+            () => RegenerateLicenseCode());
+
+        Debug.Log($"[RegionalAR] License key display built. Code={userCode} Key={licenseKey}");
+    }
+
+    void BuildPurchasePrompt(Color accentCyan, Color accentOrange,
+                             Color textPrimary, Color textSecond, Color btnFill)
+    {
+        // ── Title ──
+        MakeLbl(_licBG.transform, "UNLOCK DESKTOP APP",
+                14, textPrimary, new Vector2(0, 80), new Vector2(400, 24));
+
+        // ── Description ──
+        MakeLbl(_licBG.transform,
+                "Import your own CT & MRI DICOM scans\nwith AI-powered anatomical segmentation.\n\nProcess scans on your PC and send them\nwirelessly to your Quest for AR viewing.",
+                11, textSecond, new Vector2(0, 20), new Vector2(380, 80));
+
+        // ── Price ──
+        MakeLbl(_licBG.transform, "$9.99",
+                28, accentOrange, new Vector2(0, -50), new Vector2(200, 40));
+        MakeLbl(_licBG.transform, "one-time purchase",
+                10, textSecond, new Vector2(0, -74), new Vector2(200, 16));
+
+        // ── Purchase button ──
+        MakeClickableBtn(_licBG.transform, _licTF, "PURCHASE",
+            new Color(0.00f, 0.50f, 0.56f, 0.95f), 14,
+            new Vector2(0, -110), new Vector2(200, 42),
+            () => LaunchDesktopLicensePurchase());
+
+        Debug.Log("[RegionalAR] Purchase prompt built");
+    }
+
+    void RebuildLicensePanel()
+    {
+        if (_licBG != null) Destroy(_licBG.transform.parent.gameObject);
+        if (_licProxy != null) Destroy(_licProxy);
+        _btnCols.RemoveAll(b => b.panelTF == _licTF);
+        _sliderCols.RemoveAll(s => s.panelTF == _licTF);
+        BuildLicensePanel();
+    }
+
+    void RegenerateLicenseCode()
+    {
+        const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+        var sb = new System.Text.StringBuilder(6);
+        var rng = new System.Random();
+        for (int i = 0; i < 6; i++)
+            sb.Append(chars[rng.Next(chars.Length)]);
+        string newCode = sb.ToString();
+        PlayerPrefs.SetString("RegionalAR_LicenseCode", newCode);
+        PlayerPrefs.Save();
+
+        // Rebuild to show the new code/key
+        if (_licOpen) ToggleLicensePanel();  // close
+        RebuildLicensePanel();
+        ToggleLicensePanel();                // re-open
+    }
+
+    // ═════════════════════════════════════════════════════════════
     //  CONTROL PANEL BUILDER (tissue toggles + actions)
     // ═════════════════════════════════════════════════════════════
     GameObject _tissueSection;  // tissue layer toggles + marker buttons
@@ -2635,34 +3072,35 @@ public class WiFiDownloader : MonoBehaviour
 
         // ── Action Buttons (bottom row — outlined cyan-border style) ──
         float btnY = -223f;
-        float bw = 96f;
-        float sp = 6f;
-        float totalW = 5 * bw + 4 * sp;
+        float bw = 82f;
+        float sp = 5f;
+        float totalW = 6 * bw + 5 * sp;
         float x0 = -totalW / 2f + bw / 2f;
 
         MakeClickableBtn(_ctrlBG.transform, _ctrlTF, "WIFI",
-            btnFill, 11, new Vector2(x0, btnY), new Vector2(bw, 34),
+            btnFill, 10, new Vector2(x0, btnY), new Vector2(bw, 34),
             () => ToggleWiFiPanel());
 
         MakeClickableBtn(_ctrlBG.transform, _ctrlTF, "LIBRARY",
-            btnFill, 11, new Vector2(x0 + (bw + sp), btnY), new Vector2(bw, 34),
+            btnFill, 10, new Vector2(x0 + (bw + sp), btnY), new Vector2(bw, 34),
             () => ToggleLibPanel());
 
         MakeClickableBtn(_ctrlBG.transform, _ctrlTF, "CUT PLANE",
-            btnFill, 10, new Vector2(x0 + 2 * (bw + sp), btnY), new Vector2(bw, 34),
+            btnFill, 9, new Vector2(x0 + 2 * (bw + sp), btnY), new Vector2(bw, 34),
             CycleCutPlane);
 
-        // NOTE: Controller/Hands toggle removed for now — re-enable in future build
-        // Shift GUIDE button into the freed slot
         MakeClickableBtn(_ctrlBG.transform, _ctrlTF, "GUIDE",
-            btnFill, 11, new Vector2(x0 + 3 * (bw + sp), btnY), new Vector2(bw, 34),
+            btnFill, 10, new Vector2(x0 + 3 * (bw + sp), btnY), new Vector2(bw, 34),
             () => ToggleHint());
 
-        // QUIT — red-tinted fill to mark it as a destructive action, occupies
-        // the 5th slot reserved in the bottom row layout.
+        MakeClickableBtn(_ctrlBG.transform, _ctrlTF, "LICENSE",
+            btnFill, 10, new Vector2(x0 + 4 * (bw + sp), btnY), new Vector2(bw, 34),
+            () => ToggleLicensePanel());
+
+        // QUIT — red-tinted fill to mark it as a destructive action
         MakeClickableBtn(_ctrlBG.transform, _ctrlTF, "QUIT",
-            new Color(0.55f, 0.08f, 0.06f, 0.95f), 11,
-            new Vector2(x0 + 4 * (bw + sp), btnY), new Vector2(bw, 34),
+            new Color(0.55f, 0.08f, 0.06f, 0.95f), 10,
+            new Vector2(x0 + 5 * (bw + sp), btnY), new Vector2(bw, 34),
             () => QuitApp());
 
         _ctrlBG.SetActive(false);
