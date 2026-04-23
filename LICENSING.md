@@ -5,18 +5,29 @@ Internal documentation for the offline license key system.
 ## How It Works
 
 The license system uses HMAC-SHA256 to generate deterministic keys from a
-shared secret + user seed. No server is required — validation happens
+shared secret + user code. No server is required — validation happens
 entirely offline.
 
 ### Flow
 
 1. User purchases RegionalAR on the Meta Quest Store.
-2. In the Quest app, user taps "Desktop License" and enters a username.
-3. The Quest app generates a license key using `LicenseKeyGenerator.GenerateKey(username)`.
-4. User sees their key displayed as: `RGNL-XXXX-XXXX-XXXX-XXXX`
-5. User opens the RegionalAR Desktop app, enters their username + key.
+2. In the Quest app, user taps **LICENSE** on the control panel.
+3. The Quest app auto-generates a random 6-character code (e.g. `K7XM3P`) and saves it locally.
+4. The license panel displays both the **code** and the **license key** (`RGNL-XXXX-XXXX-XXXX-XXXX`).
+5. User opens the RegionalAR Desktop app and enters:
+   - **Username** = the 6-character code from the Quest app
+   - **License Key** = the key shown on the Quest app
 6. Desktop app validates using the same HMAC secret and saves to `.regionalar_license`.
 7. On subsequent launches, the desktop app reads the saved license file — no re-entry needed.
+
+### User Instructions (shown in Quest app)
+
+1. Open the desktop app
+2. Enter **YOUR CODE** as the username
+3. Enter the **LICENSE KEY**
+4. Click **Activate**
+
+Users can tap **NEW CODE** to regenerate a fresh code/key pair if needed.
 
 ### Key Format
 
@@ -24,70 +35,50 @@ entirely offline.
 RGNL-XXXX-XXXX-XXXX-XXXX
 ```
 
-Derived from: `HMAC-SHA256(secret, lowercase(seed))` → first 16 hex chars, grouped in 4.
+Derived from: `HMAC-SHA256(secret, lowercase(code))` → first 16 hex chars, grouped in 4.
 
 ### Files
 
 | File | Purpose |
 |------|---------|
 | `Assets/Scripts/LicenseKeyGenerator.cs` | Quest-side key generation (C#) |
-| `RegionalAR-Desktop/license_manager.py` | Desktop-side key validation (Python) |
-| `RegionalAR-Desktop/dicom_processor.py` | License gate at startup (lines at bottom) |
+| `Assets/Scripts/WiFiDownloader.cs` | License panel UI in Quest app (BuildLicensePanel) |
+| `license_manager.py` | Desktop-side key validation (Python) |
+| `dicom_processor.py` | License gate at startup (license dialog + gate) |
 
 ### Shared Secret
 
-Both files contain the same HMAC secret:
+Both `LicenseKeyGenerator.cs` and `license_manager.py` contain the same HMAC secret:
 
 ```
-RegionalAR-2026-LicenseKey-Secret-CHANGE-ME
+6n09hzVNsk4N44K431AJp5dOs-ciY7RHcACQzre3KMswwMdPBIO118vyOI528H-L
 ```
 
-**IMPORTANT:** Change this to a unique random string before shipping the paid version. The secret must match in both `LicenseKeyGenerator.cs` and `license_manager.py`.
+**IMPORTANT:** Keep this secret private. If someone extracts it, they can generate valid keys.
 
 ### Master Key
 
 For developer testing and support, a master key is defined in `license_manager.py`:
 
 ```
-RGNL-MSTR-DEV0-2026-XKEY
+RGNL-1D92-1B9C-8C9D-614E
 ```
 
-This unlocks any installation regardless of the seed entered. Change it before shipping.
-
-### Quest-Side Integration
-
-To add the license key UI to the Quest app, call the static method from
-your UI code (e.g. a button in the control panel):
-
-```csharp
-string username = // get from user input field
-string key = LicenseKeyGenerator.GenerateKey(username);
-// Display key to user in a text field they can read
-```
+This unlocks any installation regardless of the username entered. Do not share with users.
 
 ### CLI Usage (Desktop)
 
 Generate a key manually:
 ```bash
-python license_manager.py generate <username>
+python license_manager.py generate <code>
 ```
 
 Validate a key:
 ```bash
-python license_manager.py validate <username> <key>
+python license_manager.py validate <code> <key>
 ```
 
 Check if current machine is licensed:
 ```bash
 python license_manager.py check
 ```
-
-### Test Keys
-
-| Seed | Key |
-|------|-----|
-| testuser | RGNL-7532-B1DC-EB4A-0EE6 |
-| laurence | RGNL-F038-01C3-441C-F114 |
-| demo | RGNL-5E38-5A71-A8CE-44A6 |
-
-These are generated from the default secret. They will change when you update the secret.
