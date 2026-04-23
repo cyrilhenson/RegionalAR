@@ -22,6 +22,8 @@ from tkinter import ttk, filedialog, messagebox, scrolledtext
 import http.server
 import socketserver
 
+from license_manager import is_licensed, save_license
+
 # ── stdout/stderr safety net for PyInstaller --windowed builds ──
 # When the exe is built with --windowed (no console attached), Python
 # sets sys.stdout / sys.stderr to None. Any library that calls
@@ -2422,6 +2424,63 @@ class App(tk.Tk):
 
 
 # ─────────────────────────────────────────────────────────────────
+#  LICENSE DIALOG
+# ─────────────────────────────────────────────────────────────────
+
+def _show_license_dialog() -> bool:
+    """
+    Show a modal dialog asking for username + license key.
+    Returns True if the user activated successfully, False if they closed.
+    """
+    root = tk.Tk()
+    root.title("RegionalAR — Activate License")
+    root.resizable(False, False)
+    root.configure(padx=20, pady=20)
+
+    activated = [False]  # mutable so nested function can modify
+
+    tk.Label(root, text="RegionalAR Desktop", font=("Segoe UI", 14, "bold")).pack(pady=(0, 5))
+    tk.Label(root, text="Enter your license key to activate.\n"
+             "You can find it in the RegionalAR Quest app under Settings → Desktop License.",
+             wraplength=380, justify="center").pack(pady=(0, 15))
+
+    frame = tk.Frame(root)
+    frame.pack(fill="x")
+
+    tk.Label(frame, text="Username:", anchor="w").grid(row=0, column=0, sticky="w", pady=3)
+    seed_var = tk.StringVar()
+    seed_entry = tk.Entry(frame, textvariable=seed_var, width=36)
+    seed_entry.grid(row=0, column=1, padx=(8, 0), pady=3)
+
+    tk.Label(frame, text="License Key:", anchor="w").grid(row=1, column=0, sticky="w", pady=3)
+    key_var = tk.StringVar()
+    key_entry = tk.Entry(frame, textvariable=key_var, width=36)
+    key_entry.grid(row=1, column=1, padx=(8, 0), pady=3)
+
+    status_label = tk.Label(root, text="", fg="red")
+    status_label.pack(pady=(10, 5))
+
+    def on_activate():
+        seed = seed_var.get().strip()
+        key = key_var.get().strip()
+        if not seed or not key:
+            status_label.config(text="Please enter both username and license key.")
+            return
+        if save_license(seed, key):
+            activated[0] = True
+            root.destroy()
+        else:
+            status_label.config(text="Invalid license key. Please check and try again.")
+
+    tk.Button(root, text="Activate", command=on_activate, width=16,
+              bg="#2196F3", fg="white", font=("Segoe UI", 10, "bold")).pack(pady=(5, 0))
+
+    root.protocol("WM_DELETE_WINDOW", root.destroy)
+    root.mainloop()
+    return activated[0]
+
+
+# ─────────────────────────────────────────────────────────────────
 #  ENTRY POINT
 # ─────────────────────────────────────────────────────────────────
 
@@ -2433,6 +2492,11 @@ if __name__ == "__main__":
     # the FIRST thing in __main__, before anything else.
     import multiprocessing
     multiprocessing.freeze_support()
+
+    # ── License gate ──
+    if not is_licensed():
+        if not _show_license_dialog():
+            sys.exit(0)  # user closed without activating
 
     app = App()
     app.mainloop()
