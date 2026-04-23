@@ -1,0 +1,52 @@
+--- BlockAR log started 2026-04-21 12:46:13 ---
+Selected: C:/Users/Laurence/Desktop/Scan Library/Head-Neck CTA Dicom (500 .dcm files)
+Loading DICOM series...
+Found 500 DICOM slices
+Reading slices... (this may take ~20 seconds)
+Volume shape: (500, 512, 512)  HU range: -1024 to 3071
+Processing volume (HD) (AI)...
+AI: Running TotalSegmentator (this may take 1-3 minutes)...
+AI: First run downloads ~1.5 GB of models — please wait...
+AI: Found 38 anatomical structures
+AI: Creating body mask...
+AI: Body mask — 30,435,102 body, 100,636,898 background zeroed
+AI: Densifying bone structures...
+AI: Bone densified — 8,056,089 voxels
+AI: Filtering vessels and building tube morphology...
+AI: Removed 7105 small vessel clusters, kept 13 major vessels
+AI: Densified 1,848,507 vessel voxels
+AI: Tube closing added 1,650,721 fill voxels
+AI: Vessel walls smoothed
+AI: Estimating nerve locations from anatomical landmarks...
+AI: Label-map lookup — spinal_cord IDs: [79], vertebrae IDs: 25 labels
+AI: Spinal cord — 447,534 voxels
+AI: Nerve root zone — 69,708 voxels (between cord and vertebrae)
+AI: Plexus estimation (35-iter dilation) — 788,996 additional voxels
+AI: Plexus vessel-anchor label lookup → 11 label IDs matched ('subclavian_artery', 'subclavian_vein', 'brachiocephalic_trunk', 'brachiocephalic_vein', 'common_carotid_artery', 'iliac_artery', 'iliac_vena', 'iliac_vein')
+AI:   matched label names: ['brachiocephalic_trunk', 'brachiocephalic_vein_left', 'brachiocephalic_vein_right', 'common_carotid_artery_left', 'common_carotid_artery_right', 'iliac_artery_left', 'iliac_artery_right', 'iliac_vena_left', 'iliac_vena_right', 'subclavian_artery_left', 'subclavian_artery_right']
+AI:   anchor-vessel voxels in this scan: 210,472
+AI: Vessel-anchored plexus corridor — added 52,769 voxels (10-iter halo around 210,472 anchor voxels)
+AI: Perivascular nerve estimate — 1,895,234 voxels
+AI: Nerve tube morphology — 4,567,628 total voxels
+AI: Remapped 4,567,628 nerve voxels to HU 140 (shader nerve range, bright)
+AI: Applying label-based boundary smoothing...
+AI: Border smoothing complete
+AI: Anatomical mask applied — 817,205 loose body-mask voxels removed (muscle bleed fix)
+AI: Bone mask from labels — 63 bone structures, 11,501,263 voxels
+AI: Vessel mask from labels — 17 vessel structures, 210,472 voxels
+AI: Muscle mask from labels — 16 muscle groups, 1,494,585 voxels
+AI: Processing complete
+Target resolution: 256³ (16.0 MB) [AI enhanced]
+Resampling (512, 512, 500) -> (205, 205, 256) for Quest 3 GPU (256³ target)
+Padded to 256³ cube
+MESH: Starting mesh extraction (AI=True, trimesh=True, ai_bone_mask=True, ai_vessel_mask=True, ai_nerve_mask=True, ai_muscle_mask=True)...
+MESH: Building bone mask...
+MESH: Using AI anatomical bone mask: 942,104 voxels
+MESH: Kept 11 components (largest 863,612.0 vox), dropped 11 small (<300 vox)
+MESH: Marching cubes → 362,919 verts, 723,668 tris
+MESH: Taubin smoothing applied (25 iterations)
+MESH: Decimated to 150,000 tris (reduction=0.79)
+MESH: Exported Head-Neck_CTA_Dicom.omsh (75,355 verts, 150,000 tris, 3.4 MB)
+VMESH: Building vessel mask...
+VMESH: AI anatomical vessel mask (major): 17,374 voxels
+VMESH: Adding medium-vessel branches via Frangi...
