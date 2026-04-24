@@ -891,7 +891,7 @@ public class WiFiDownloader : MonoBehaviour
 #if UNITY_EDITOR
         UnityEditor.EditorApplication.isPlaying = false;
 #else
-        Application.Quit();
+        UnityEngine.Application.Quit();
 #endif
     }
 
@@ -1913,7 +1913,7 @@ public class WiFiDownloader : MonoBehaviour
     IEnumerator InstallBundledSample()
     {
         // Check if sample already installed (marker file)
-        string markerPath = Path.Combine(Application.persistentDataPath, ".sample_installed");
+        string markerPath = Path.Combine(UnityEngine.Application.persistentDataPath, ".sample_installed");
         if (File.Exists(markerPath))
         {
             Debug.Log("[RegionalAR] Bundled sample already installed — skipping.");
@@ -1935,7 +1935,7 @@ public class WiFiDownloader : MonoBehaviour
 
         foreach (string ext in SAMPLE_EXTS)
         {
-            string srcPath = Path.Combine(Application.streamingAssetsPath, SAMPLE_NAME + ext);
+            string srcPath = Path.Combine(UnityEngine.Application.streamingAssetsPath, SAMPLE_NAME + ext);
             string dstPath = Path.Combine(libDir, SAMPLE_NAME + ext);
 
             // On Android, StreamingAssets are inside the APK jar —
@@ -2033,7 +2033,7 @@ public class WiFiDownloader : MonoBehaviour
     // ═════════════════════════════════════════════════════════════
     static string ScanLibraryDir()
     {
-        string dir = Path.Combine(Application.persistentDataPath, "ScanLibrary");
+        string dir = Path.Combine(UnityEngine.Application.persistentDataPath, "ScanLibrary");
         if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
         return dir;
     }
@@ -3003,7 +3003,7 @@ public class WiFiDownloader : MonoBehaviour
                 if (i == 0) { var m = vr.GetComponent<BoneMeshLoader>();   lOn = (m != null && m.HasMesh) ? m.IsMeshEnabled : (i < vr.layers.Length && vr.layers[i].enabled); }
                 else if (i == 1) { var m = vr.GetComponent<VesselMeshLoader>(); lOn = (m != null && m.HasMesh) ? m.IsMeshEnabled : (i < vr.layers.Length && vr.layers[i].enabled); }
                 else if (i == 2) { var m = vr.GetComponent<NerveMeshLoader>();  lOn = (m != null && m.HasMesh) ? m.IsMeshEnabled : (i < vr.layers.Length && vr.layers[i].enabled); }
-                else if (i == 3) { var m = vr.GetComponent<MuscleMeshLoader>(); lOn = (m != null && m.HasMesh) ? m.IsMeshEnabled : false; }
+                else if (i == 3) { var m = vr.GetComponent<MuscleMeshLoader>(); lOn = (m != null && m.HasMesh) ? m.IsMeshEnabled : true; }
             }
             float  yPos  = 100f - 28f - i * 44f;  // 44px spacing, shifted up to use top space
 
