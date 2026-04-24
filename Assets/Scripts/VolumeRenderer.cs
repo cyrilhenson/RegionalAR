@@ -38,7 +38,7 @@ public class VolumeRenderer : MonoBehaviour
     const float windowCenter = 0.4f;
     const float windowWidth  = 0.8f;
 
-    // ── Tissue layer state (matches shader _L0.._L2) ─────────────
+    // ── Tissue layer state (matches shader _L0.._L3) ─────────────
     [System.Serializable]
     public class TissueLayer
     {
@@ -53,12 +53,13 @@ public class VolumeRenderer : MonoBehaviour
     // Bone:        HU  700-2048 → 0.561-1.000  (cortical + dense cancellous)
     // Vasculature: HU  150- 400 → 0.382-0.464  (contrast-enhanced vessels)
     // Nerves:      HU  110- 150 → 0.369-0.382  (AI-remapped neural tissue)
-    // (Muscle layer removed — produced unusable red haze even at low alpha)
+    // Muscle:      HU   70- 110 → 0.356-0.369  (AI-remapped muscle groups)
     public TissueLayer[] layers = new TissueLayer[]
     {
         new TissueLayer { name = "Bone",        enabled = true, densityMin = 0.561f, densityMax = 1.000f, color = new Color(0.95f,0.92f,0.85f,1f) },
         new TissueLayer { name = "Vasculature", enabled = true, densityMin = 0.382f, densityMax = 0.464f, color = new Color(0.95f,0.15f,0.10f,0.95f) },
         new TissueLayer { name = "Nerves",      enabled = true, densityMin = 0.369f, densityMax = 0.382f, color = new Color(1f,0.95f,0.2f,0.90f) },
+        new TissueLayer { name = "Muscle",      enabled = true, densityMin = 0.356f, densityMax = 0.369f, color = new Color(0.85f,0.35f,0.55f,0.75f) },
     };
 
     // Crop bounds (UV 0-1)
@@ -160,8 +161,9 @@ public class VolumeRenderer : MonoBehaviour
             new TissueLayer { name = "Bone",        enabled = true, densityMin = 0.561f, densityMax = 1.000f, color = new Color(0.95f,0.92f,0.85f,1f) },
             new TissueLayer { name = "Vasculature", enabled = true, densityMin = 0.382f, densityMax = 0.464f, color = new Color(0.95f,0.15f,0.10f,0.95f) },
             new TissueLayer { name = "Nerves",      enabled = true, densityMin = 0.369f, densityMax = 0.382f, color = new Color(1f,0.95f,0.2f,0.90f) },
+            new TissueLayer { name = "Muscle",      enabled = true, densityMin = 0.356f, densityMax = 0.369f, color = new Color(0.85f,0.35f,0.55f,0.75f) },
         };
-        Debug.Log("[RegionalAR] Layer defaults applied: 3 layers (Bone, Vasc, Nerves)");
+        Debug.Log("[RegionalAR] Layer defaults applied: 4 layers (Bone, Vasc, Nerves, Muscle)");
     }
 
     IEnumerator InitAfterXR()
@@ -544,7 +546,7 @@ public class VolumeRenderer : MonoBehaviour
     void PushLayersToMaterial()
     {
         if (_matInstance == null) return;
-        string[] pfx = { "_L0", "_L1", "_L2" };
+        string[] pfx = { "_L0", "_L1", "_L2", "_L3" };
         for (int i = 0; i < Mathf.Min(layers.Length, pfx.Length); i++)
         {
             var L = layers[i];

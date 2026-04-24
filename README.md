@@ -109,7 +109,7 @@ The output will be in `dist/RegionalAR.exe`.
 
 - **Minimum:** Python 3.10, 8 GB RAM, 2 GB disk space
 - **For AI Segmentation:** 16 GB RAM recommended, ~5 GB disk space (PyTorch + models)
-- **For CUDA acceleration:** NVIDIA GPU with CUDA 12.1+ support
+- **GPU Acceleration:** Requires an **NVIDIA GPU with CUDA 12.1+** support. AI segmentation will automatically use CUDA when available for significantly faster processing (~1-2 min per scan). If no NVIDIA GPU is detected, processing falls back to **CPU mode**, which is fully functional but slower (~5-10 min per scan). AMD and Intel GPUs are not currently supported for acceleration.
 - **Network:** Same WiFi network as Quest 3 for wireless transfer
 
 ## Output Format
@@ -132,8 +132,25 @@ The app produces `.vol` files in the OVOL format:
 
 Proprietary software — all rights reserved. See [LICENSE](LICENSE) for details. A valid license key is required to use the desktop companion app.
 
-## Acknowledgments
+## Acknowledgments & Citations
 
-- [TotalSegmentator](https://github.com/wasserth/TotalSegmentator) by Wasserthal et al. for AI anatomical segmentation
-- [Meta Quest 3](https://www.meta.com/quest/) for the AR platform
-- Built with [PyTorch](https://pytorch.org/), [SimpleITK](https://simpleitk.org/), and [nnU-Net](https://github.com/MIC-DKAA/nnUNet)
+This project relies on the following open-source tools and research. If you use RegionalAR in academic work, please cite the relevant papers.
+
+**AI Segmentation:**
+
+- **TotalSegmentator** — Wasserthal, J., Breit, H.-C., Meyer, M.T., et al. *TotalSegmentator: Robust Segmentation of 104 Anatomic Structures in CT Images.* Radiology: Artificial Intelligence, 2023;5(5):e230024. DOI: [10.1148/ryai.230024](https://pubs.rsna.org/doi/10.1148/ryai.230024) | [GitHub](https://github.com/wasserth/TotalSegmentator)
+
+- **nnU-Net** — Isensee, F., Jaeger, P.F., Kohl, S.A.A., Petersen, J., Maier-Hein, K.H. *nnU-Net: a self-configuring method for deep learning-based biomedical image segmentation.* Nature Methods, 2021;18:203–211. DOI: [10.1038/s41592-020-01008-z](https://doi.org/10.1038/s41592-020-01008-z) | [GitHub](https://github.com/MIC-DKAA/nnUNet)
+
+**Core Libraries:**
+
+- [PyTorch](https://pytorch.org/) — Deep learning framework (CUDA acceleration)
+- [SimpleITK](https://simpleitk.org/) — Medical image I/O and resampling
+- [scikit-image](https://scikit-image.org/) — Marching cubes mesh extraction
+- [trimesh](https://trimesh.org/) — Mesh smoothing and decimation
+- [SciPy](https://scipy.org/) — Frangi vesselness filter and morphological operations
+
+**Platform:**
+
+- [Meta Quest 3](https://www.meta.com/quest/) — AR headset platform
+- [Oculus Platform SDK](https://developer.oculus.com/) — In-app purchase and entitlement

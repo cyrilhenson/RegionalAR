@@ -770,6 +770,10 @@ public class WiFiDownloader : MonoBehaviour
     {
         try
         {
+            // Close other panels first to prevent overlap
+            if (_libOpen) ToggleLibPanel();
+            if (_licOpen) ToggleLicensePanel();
+
             _wifiOpen = !_wifiOpen;
             if (_wifiBG != null) _wifiBG.SetActive(_wifiOpen);
             if (_wifiProxy != null) _wifiProxy.SetActive(_wifiOpen);
@@ -1566,9 +1570,12 @@ public class WiFiDownloader : MonoBehaviour
             if (mml != null && mml.HasMesh)
             {
                 mml.SetMeshEnabled(on);
-                return;   // no volume layer for muscle
+                vr.SetLayerEnabled(3, false); // keep volume muscle off when mesh active
+                return;
             }
-            return;   // no fallback — muscle is mesh-only
+            // Fallback: toggle volume muscle layer (AI-remapped HU 90)
+            vr.SetLayerEnabled(3, on);
+            return;
         }
 
         // Fallback (no AI mesh available): toggle the volume layer directly
@@ -2321,6 +2328,10 @@ public class WiFiDownloader : MonoBehaviour
     {
         try
         {
+            // Close other panels first to prevent overlap
+            if (_wifiOpen) ToggleWiFiPanel();
+            if (_licOpen) ToggleLicensePanel();
+
             _libOpen = !_libOpen;
             if (_libBG != null) _libBG.SetActive(_libOpen);
             if (_libProxy != null) _libProxy.SetActive(_libOpen);
@@ -2628,16 +2639,39 @@ public class WiFiDownloader : MonoBehaviour
 
     void CheckPurchaseList(PurchaseList purchases)
     {
+        bool found = false;
         foreach (var purchase in purchases)
         {
             if (string.Equals(purchase.Sku, IAP_SKU, StringComparison.OrdinalIgnoreCase))
             {
-                _desktopLicenseOwned = true;
-                Debug.Log("[RegionalAR] Desktop license IAP owned!");
-                return;
+                found = true;
+                break;
             }
         }
-        Debug.Log("[RegionalAR] Desktop license IAP not yet purchased");
+
+        if (found)
+        {
+            _desktopLicenseOwned = true;
+            Debug.Log("[RegionalAR] Desktop license IAP owned!");
+        }
+        else
+        {
+            // Purchase not found — either never bought or refunded.
+            // If previously owned, invalidate the saved code so the
+            // key can't be reused after a refund.
+            if (_desktopLicenseOwned)
+            {
+                Debug.LogWarning("[RegionalAR] Desktop license IAP no longer owned — "
+                    + "purchase may have been refunded. Invalidating saved code.");
+                PlayerPrefs.DeleteKey("RegionalAR_LicenseCode");
+                PlayerPrefs.Save();
+            }
+            _desktopLicenseOwned = false;
+            Debug.Log("[RegionalAR] Desktop license IAP not purchased");
+
+            // Rebuild license panel to show purchase prompt instead of key
+            RebuildLicensePanel();
+        }
     }
 
     void LaunchDesktopLicensePurchase()
@@ -2694,6 +2728,10 @@ public class WiFiDownloader : MonoBehaviour
     {
         try
         {
+            // Close other panels first to prevent overlap
+            if (_wifiOpen) ToggleWiFiPanel();
+            if (_libOpen) ToggleLibPanel();
+
             _licOpen = !_licOpen;
             if (_licBG != null) _licBG.SetActive(_licOpen);
             if (_licProxy != null) _licProxy.SetActive(_licOpen);
@@ -2991,8 +3029,8 @@ public class WiFiDownloader : MonoBehaviour
 
         for (int i = 0; i < 4; i++)
         {
-            string lName = (i < 3 && vr != null && i < vr.layers.Length) ? vr.layers[i].name.ToUpper() : tNames[i];
-            Color  lCol  = (i < 3 && vr != null && i < vr.layers.Length) ? vr.layers[i].color : tCols[i];
+            string lName = (i < 4 && vr != null && i < vr.layers.Length) ? vr.layers[i].name.ToUpper() : tNames[i];
+            Color  lCol  = (i < 4 && vr != null && i < vr.layers.Length) ? vr.layers[i].color : tCols[i];
             // Initial ON state: if a mesh is loaded for this layer, check
             // mesh visibility (which is true by default after load). Only
             // fall back to volume layer state if no mesh exists. This fixes
@@ -3003,7 +3041,7 @@ public class WiFiDownloader : MonoBehaviour
                 if (i == 0) { var m = vr.GetComponent<BoneMeshLoader>();   lOn = (m != null && m.HasMesh) ? m.IsMeshEnabled : (i < vr.layers.Length && vr.layers[i].enabled); }
                 else if (i == 1) { var m = vr.GetComponent<VesselMeshLoader>(); lOn = (m != null && m.HasMesh) ? m.IsMeshEnabled : (i < vr.layers.Length && vr.layers[i].enabled); }
                 else if (i == 2) { var m = vr.GetComponent<NerveMeshLoader>();  lOn = (m != null && m.HasMesh) ? m.IsMeshEnabled : (i < vr.layers.Length && vr.layers[i].enabled); }
-                else if (i == 3) { var m = vr.GetComponent<MuscleMeshLoader>(); lOn = (m != null && m.HasMesh) ? m.IsMeshEnabled : true; }
+                else if (i == 3) { var m = vr.GetComponent<MuscleMeshLoader>(); lOn = (m != null && m.HasMesh) ? m.IsMeshEnabled : (i < vr.layers.Length && vr.layers[i].enabled); }
             }
             float  yPos  = 100f - 28f - i * 44f;  // 44px spacing, shifted up to use top space
 

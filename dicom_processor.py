@@ -784,6 +784,37 @@ def hd_ai_segment(volume, spacing, dicom_folder, log, mri_mode=False):
             else:
                 log("AI: No nerve structures estimated")
 
+            # ── Step 4b: Remap AI-identified muscle to unique HU band ──
+            # Muscle tissue (HU 40-80) overlaps with general soft tissue,
+            # making HU thresholding useless. But TotalSegmentator labels
+            # know which voxels are specific muscle groups. Remap them to
+            # HU 90 — a dedicated band below nerves (110-150) that the
+            # Quest shader can display as a separate muscle layer.
+            muscle_ids_remap = _ai_labels_matching(_AI_MUSCLE_NAME_TOKENS, mri_mode)
+            if muscle_ids_remap:
+                muscle_remap_mask = np.isin(seg_arr, list(muscle_ids_remap))
+                # Exclude voxels already claimed by bone or nerve
+                if bone_mask is not None:
+                    muscle_remap_mask = muscle_remap_mask & ~bone_mask
+                if vessel_mask is not None:
+                    muscle_remap_mask = muscle_remap_mask & ~vessel_mask
+                if nerve_mask is not None:
+                    muscle_remap_mask = muscle_remap_mask & ~nerve_mask
+                n_muscle = int(np.sum(muscle_remap_mask))
+                if n_muscle > 0:
+                    vol[muscle_remap_mask] = 90.0
+                    # Light smooth for clean rendering
+                    ms = ndimage.gaussian_filter(vol * muscle_remap_mask, sigma=1.0)
+                    mn = ndimage.gaussian_filter(muscle_remap_mask.astype(np.float32), sigma=1.0)
+                    mn = np.where(mn > 0.01, mn, 1.0)
+                    vol = np.where(muscle_remap_mask, ms / mn, vol)
+                    log(f"AI: Remapped {n_muscle:,} muscle voxels to HU 90 "
+                        f"(shader muscle range)")
+                else:
+                    log("AI: No muscle voxels to remap (all claimed by other tissues)")
+            else:
+                log("AI: No muscle labels found for remapping")
+
             # ── Step 5: Label-based boundary smoothing ─────────────────
             # Use TotalSegmentator labels for clean boundaries between
             # structures. IMPORTANT: we do NOT multiply by SDF confidence
@@ -978,6 +1009,67 @@ def process_volume(volume, spacing, log, hd_mode=False, ai_segment=False,
         # Ensure at least 1 and at most target in each dim
         new_sz = [max(1, min(target, s)) for s in new_sz]
 
+        # ── Tissue preservation for elongated volumes ─────────────
+        # When a volume is very elongated (e.g. a full leg: 195×257×3000),
+        # isotropic resampling crushes the short axes (195×257 → 38×49).
+        # At that resolution, thin structures (bone cortex, vessels, nerves)
+        # get averaged away by linear interpolation. Fix: resample tissue
+        # masks with nearest-neighbor (preserves thin structures), then
+        # stamp them into the linear-resampled volume at target HU values
+        # that map to the correct Quest shader layers.
+        #
+        # Quest shader density ranges (normalized 0-1):
+        #   Bone:         0.561-1.000  (HU 700-2048)
+        #   Vasculature:  0.382-0.464  (HU 150-400)
+        #   Nerves:       0.369-0.382  (HU 110-150)
+        min_dim = min(new_sz)
+        tissue_masks_nn = {}  # name → (resampled_mask, stamp_hu)
+        if min_dim < 96:
+            from scipy.ndimage import binary_dilation
+            ds_ratio = max(1, int(round(new_sp / min(orig_sp[0], orig_sp[1]))))
+            dilate_r = min(3, max(1, ds_ratio // 2))
+            struct = np.ones((1, dilate_r*2+1, dilate_r*2+1), dtype=bool)
+            log(f"Tissue preservation: {min_dim}px min axis, "
+                f"dilation={dilate_r}px, ds_ratio={ds_ratio}x")
+
+            # Build mutually exclusive masks (priority: bone > vessel > nerve > muscle)
+            # HU values chosen to land in the correct Quest shader layer.
+            bone_src   = vol > 300.0
+            vessel_src = (vol >= 150.0) & (vol <= 300.0) & ~bone_src
+            nerve_src  = (vol >= 110.0) & (vol < 150.0) & ~bone_src & ~vessel_src
+            muscle_src = (vol >= 70.0) & (vol < 110.0) & ~bone_src & ~vessel_src & ~nerve_src
+
+            tissue_defs = [
+                ("Bone",   bone_src,   HU_MAX),   # → density ~1.0 (bone layer)
+                ("Vessel", vessel_src, 275.0),     # → density 0.423 (vasc layer)
+                ("Nerve",  nerve_src,  140.0),     # → density 0.379 (nerve layer)
+                ("Muscle", muscle_src,  90.0),     # → density 0.363 (muscle layer)
+            ]
+
+            for name, mask, stamp_hu in tissue_defs:
+                n_src = int(np.sum(mask))
+                if n_src < 100:
+                    log(f"  {name}: only {n_src} voxels — skipping preservation")
+                    continue
+                # Dilate in XY to survive coarse output grid
+                dilated = binary_dilation(mask, structure=struct).astype(np.uint8)
+                n_dil = int(np.sum(dilated))
+                # NN resample
+                mask_sitk = sitk.GetImageFromArray(dilated)
+                mask_sitk.SetSpacing((spacing[0], spacing[1], spacing[2]))
+                rs_m = sitk.ResampleImageFilter()
+                rs_m.SetSize(new_sz)
+                rs_m.SetOutputSpacing([new_sp] * 3)
+                rs_m.SetOutputOrigin(mask_sitk.GetOrigin())
+                rs_m.SetOutputDirection(mask_sitk.GetDirection())
+                rs_m.SetInterpolator(sitk.sitkNearestNeighbor)
+                rs_m.SetDefaultPixelValue(0)
+                nn_mask = sitk.GetArrayFromImage(rs_m.Execute(mask_sitk)) > 0
+                n_nn = int(np.sum(nn_mask))
+                log(f"  {name}: {n_src:,} → dilated {n_dil:,} → "
+                    f"NN resampled {n_nn:,} voxels (stamp HU {stamp_hu:.0f})")
+                tissue_masks_nn[name] = (nn_mask, stamp_hu)
+
         log(f"Resampling {orig_sz} -> {tuple(new_sz)} for Quest 3 GPU ({target}³ target)")
         rs = sitk.ResampleImageFilter()
         rs.SetSize(new_sz)
@@ -987,6 +1079,16 @@ def process_volume(volume, spacing, log, hd_mode=False, ai_segment=False,
         rs.SetInterpolator(sitk.sitkLinear)
         rs.SetDefaultPixelValue(float(HU_MIN))
         vol = sitk.GetArrayFromImage(rs.Execute(sitk_vol))
+
+        # Stamp tissue locations into the resampled volume
+        # Reverse priority order so bone stamps last (highest priority wins)
+        for name in ["Muscle", "Nerve", "Vessel", "Bone"]:
+            if name in tissue_masks_nn:
+                nn_mask, stamp_hu = tissue_masks_nn[name]
+                if nn_mask.shape == vol.shape:
+                    vol[nn_mask] = stamp_hu
+                    log(f"  Stamped {name}: {int(np.sum(nn_mask)):,} voxels "
+                        f"→ HU {stamp_hu:.0f}")
     else:
         log(f"Volume already small enough: {orig_sz}")
 
@@ -1167,7 +1269,7 @@ def extract_bone_mesh(cube_volume_float, target_cube_size, output_path, log,
                 log("MESH: AI bone mask too small — falling back to HU threshold")
             raw_mask = vol_for_mc >= _MESH_BONE_HU_LEVEL
             n_raw = int(np.sum(raw_mask))
-            if n_raw < 5000:
+            if n_raw < 2000:
                 log(f"MESH: only {n_raw} bone-level voxels — skipping mesh export.")
                 return None
             log(f"MESH: Raw bone-HU voxels: {n_raw:,}")
