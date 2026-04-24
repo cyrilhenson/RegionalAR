@@ -62,6 +62,14 @@ Shader "RegionalAR/VolumeRaymarch"
         _L2Min ("Nerves Min",  Float)   = 0.369
         _L2Max ("Nerves Max",  Float)   = 0.382
         _L2Col ("Nerves Color",Color)   = (1.0, 0.95, 0.2, 0.90)
+
+        // Layer 3 — Muscle (HU 70-110, AI-remapped discrete muscle groups)
+        // Natural muscle HU (~40-80) overlaps soft tissue, so AI
+        // preprocessing remaps labeled muscle voxels to HU 90.
+        _L3On  ("Muscle On",   Float)   = 1
+        _L3Min ("Muscle Min",  Float)   = 0.356
+        _L3Max ("Muscle Max",  Float)   = 0.369
+        _L3Col ("Muscle Color",Color)   = (0.85, 0.35, 0.55, 0.75)
     }
 
     SubShader
@@ -94,9 +102,9 @@ Shader "RegionalAR/VolumeRaymarch"
             float4 _CutPlane2N;
             float  _CutPlane2D;
 
-            half   _L0On, _L1On, _L2On;
-            half   _L0Min, _L0Max, _L1Min, _L1Max, _L2Min, _L2Max;
-            half4  _L0Col, _L1Col, _L2Col;
+            half   _L0On, _L1On, _L2On, _L3On;
+            half   _L0Min, _L0Max, _L1Min, _L1Max, _L2Min, _L2Max, _L3Min, _L3Max;
+            half4  _L0Col, _L1Col, _L2Col, _L3Col;
 
             // Grayscale MRI mode
             half   _GrayscaleMode;
@@ -202,7 +210,7 @@ Shader "RegionalAR/VolumeRaymarch"
                 // When ALL volume layers are off (meshes handle rendering),
                 // skip the slice cross-section view — it would produce a
                 // blocky warm-tinted skeleton showing through clipped meshes.
-                bool anyLayerOn = (_L0On > 0.5 || _L1On > 0.5 || _L2On > 0.5);
+                bool anyLayerOn = (_L0On > 0.5 || _L1On > 0.5 || _L2On > 0.5 || _L3On > 0.5);
 
                 // Track consecutive empty samples for adaptive stepping
                 int emptyRun = 0;
@@ -328,6 +336,11 @@ Shader "RegionalAR/VolumeRaymarch"
                         {
                             c = _L2Col.rgb; la = _L2Col.a * 1.5; hit = true;
                             gradMix = _GradOpacity * 0.3;  // less gradient shading = brighter nerves
+                        }
+                        else if (_L3On > 0.5 && d >= _L3Min && d <= _L3Max)
+                        {
+                            c = _L3Col.rgb; la = _L3Col.a * 1.0; hit = true;
+                            gradMix = _GradOpacity * 0.2;  // subtle gradient for muscle mass
                         }
                         if (hit)
                         {
