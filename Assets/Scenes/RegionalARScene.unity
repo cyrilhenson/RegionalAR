@@ -1249,7 +1249,7 @@ MonoBehaviour:
   requestRecordAudioPermissionOnStartup: 0
   requestPassthroughCameraAccessPermissionOnStartup: 0
   _localDimming: 1
-  _trackingOriginType: 2
+  _trackingOriginType: 1
   usePositionTracking: 1
   useRotationTracking: 1
   useIPDInPositionTracking: 1
@@ -1800,9 +1800,6 @@ MonoBehaviour:
   DensityThresh: 0.02
   GradOpacity: 0.6
   GradBoost: 3
-  grayscaleMode: 0
-  windowCenter: 0.4
-  windowWidth: 0.8
   layers:
   - name: Bone
     enabled: 1

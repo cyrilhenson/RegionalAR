@@ -409,7 +409,24 @@ public class VolumeRenderer : MonoBehaviour
     /// missing, the matching volume layer stays on as the fallback.
     void TryLoadCompanionMesh(string volPath)
     {
+        // ── Clear all old meshes first so stale data doesn't persist ──
         var bml = GetComponent<BoneMeshLoader>();
+        if (bml != null) bml.SetMeshEnabled(false);
+        var vml = GetComponent<VesselMeshLoader>();
+        if (vml != null) vml.SetMeshEnabled(false);
+        var nml = GetComponent<NerveMeshLoader>();
+        if (nml != null) nml.SetMeshEnabled(false);
+        var mml = GetComponent<MuscleMeshLoader>();
+        if (mml != null) mml.SetMeshEnabled(false);
+
+        // ── Re-enable volume layers as fallback (mesh load overrides below) ──
+        if (layers != null)
+        {
+            for (int i = 0; i < layers.Length; i++)
+                SetLayerEnabled(i, true);
+        }
+
+        // ── Now try loading new companion meshes ──
         if (bml != null)
         {
             bml.TryLoadCompanion(volPath);
@@ -420,7 +437,6 @@ public class VolumeRenderer : MonoBehaviour
                     SetLayerEnabled(0, false);   // volume bone off
             }
         }
-        var vml = GetComponent<VesselMeshLoader>();
         if (vml != null)
         {
             vml.TryLoadCompanion(volPath);
@@ -431,7 +447,6 @@ public class VolumeRenderer : MonoBehaviour
                     SetLayerEnabled(1, false);   // volume vasc off
             }
         }
-        var nml = GetComponent<NerveMeshLoader>();
         if (nml != null)
         {
             nml.TryLoadCompanion(volPath);
@@ -442,7 +457,6 @@ public class VolumeRenderer : MonoBehaviour
                     SetLayerEnabled(2, false);   // volume nerves off
             }
         }
-        var mml = GetComponent<MuscleMeshLoader>();
         if (mml != null)
         {
             mml.TryLoadCompanion(volPath);
