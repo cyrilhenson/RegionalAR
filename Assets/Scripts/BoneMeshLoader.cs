@@ -67,6 +67,10 @@ public class BoneMeshLoader : MonoBehaviour
     /// Returns true on success. Silent no-op if the companion file is missing.
     public bool TryLoadCompanion(string volPath)
     {
+        // ── Always destroy old mesh first so stale data never persists ──
+        if (_mesh != null) { Destroy(_mesh); _mesh = null; }
+        if (_meshGO != null) _meshGO.SetActive(false);
+
         _lastError = "";
         _lastAttemptedPath = "";
         if (string.IsNullOrEmpty(volPath))

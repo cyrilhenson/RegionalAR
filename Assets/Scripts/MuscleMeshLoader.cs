@@ -42,6 +42,10 @@ public class MuscleMeshLoader : MonoBehaviour
 
     public bool TryLoadCompanion(string volPath)
     {
+        // ── Always destroy old mesh first so stale data never persists ──
+        if (_mesh != null) { Destroy(_mesh); _mesh = null; }
+        if (_meshGO != null) _meshGO.SetActive(false);
+
         _lastError = "";
         _lastAttemptedPath = "";
         if (string.IsNullOrEmpty(volPath)) { _lastError = "empty vol path"; return false; }

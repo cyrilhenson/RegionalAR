@@ -50,6 +50,10 @@ public class VesselMeshLoader : MonoBehaviour
     /// Find and load <volPath-without-extension>.vmsh. Silent no-op if missing.
     public bool TryLoadCompanion(string volPath)
     {
+        // ── Always destroy old mesh first so stale data never persists ──
+        if (_mesh != null) { Destroy(_mesh); _mesh = null; }
+        if (_meshGO != null) _meshGO.SetActive(false);
+
         _lastError = "";
         _lastAttemptedPath = "";
         if (string.IsNullOrEmpty(volPath))
