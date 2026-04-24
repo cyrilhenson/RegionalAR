@@ -207,18 +207,8 @@ Shader "RegionalAR/VolumeRaymarch"
                 float3 cp1N = normalize(_CutPlane1N.xyz);
                 float3 cp2N = normalize(_CutPlane2N.xyz);
 
-                // When ALL volume layers are off (meshes handle rendering),
-                // skip the slice cross-section view — it would produce a
-                // blocky warm-tinted skeleton showing through clipped meshes.
-                bool anyLayerOn = (_L0On > 0.5 || _L1On > 0.5 || _L2On > 0.5 || _L3On > 0.5);
-
                 // Track consecutive empty samples for adaptive stepping
                 int emptyRun = 0;
-
-                // Track whether we've already drawn a slice pixel at a cut
-                // plane — only the FIRST crossing should paint the cross-
-                // section, subsequent samples along that ray are occluded.
-                bool sliceDrawn = false;
 
                 // Constant upper bound (128) for GPU loop unrolling;
                 // early break at numSteps keeps actual work proportional
@@ -252,33 +242,12 @@ Shader "RegionalAR/VolumeRaymarch"
                     bool past2 = (dot(pC, cp2N) > _CutPlane2D);
                     if (past1 || past2)
                     {
-                        // When all layers are off (meshes render instead),
-                        // skip slice view entirely — just discard/skip the
-                        // clipped voxel so meshes handle it alone.
-                        if (!anyLayerOn)
-                        {
-                            p += step;
-                            continue;
-                        }
-
-                        if (sliceDrawn) break;
-
-                        half ds = tex3Dlod(_Volume, float4(p, 0)).r;
-                        // Only paint slice if we're on actual tissue. The
-                        // threshold is generous so soft tissue shows up,
-                        // but noise-level (<_Threshold) stays transparent.
-                        if (ds > _Threshold * 2.0)
-                        {
-                            half wMin = _WindowCenter - _WindowWidth * 0.5;
-                            half wMax = _WindowCenter + _WindowWidth * 0.5;
-                            half brightness = saturate((ds - wMin) / max(wMax - wMin, 0.001));
-                            half3 tint = half3(1.00, 0.92, 0.82);
-                            col.rgb += (1.0 - col.a) * brightness * tint;
-                            col.a    = 1.0;
-                            sliceDrawn = true;
-                            break;
-                        }
-                        // Air past the plane — skip without drawing
+                        // Always skip the clipped side cleanly — do NOT
+                        // attempt to draw a slice cross-section from the
+                        // raw volume texture. At Quest's downsampled
+                        // resolution this produces blocky voxel artefacts.
+                        // The meshes (bone, vessel, nerve, muscle) provide
+                        // the visual; the volume just needs to clip away.
                         p += step;
                         continue;
                     }

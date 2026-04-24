@@ -2490,6 +2490,8 @@ public class WiFiDownloader : MonoBehaviour
         _hintCanvas = _hintRoot.AddComponent<Canvas>();
         _hintCanvas.renderMode = RenderMode.WorldSpace;
         _hintCanvas.sortingOrder = 33;
+        var hintScaler = _hintRoot.AddComponent<CanvasScaler>();
+        hintScaler.dynamicPixelsPerUnit = 2.5f;
         _hintRoot.AddComponent<PanelStabilizer>();  // smooth tracking jitter
         Camera cam = Cam();
         if (cam != null) _hintCanvas.worldCamera = cam;
@@ -2519,7 +2521,7 @@ public class WiFiDownloader : MonoBehaviour
         hInner.AddComponent<Image>().color = new Color(0.02f, 0.02f, 0.04f, 0.92f);
 
         float y = 145f;
-        MakeLbl(bg.transform, "BLOCKAR CONTROLS", 20, new Color(0f, 0.74f, 0.83f),
+        MakeLbl(bg.transform, "REGIONALAR CONTROLS", 20, new Color(0f, 0.74f, 0.83f),
                 new Vector2(0, y), new Vector2(400, 36));
 
         string[] lines = {
@@ -2771,6 +2773,8 @@ public class WiFiDownloader : MonoBehaviour
         _licCanvas = panelRoot.AddComponent<Canvas>();
         _licCanvas.renderMode = RenderMode.WorldSpace;
         _licCanvas.sortingOrder = 32;
+        var licScaler = panelRoot.AddComponent<CanvasScaler>();
+        licScaler.dynamicPixelsPerUnit = 2.5f;
         panelRoot.AddComponent<PanelStabilizer>();
         _licTF = panelRoot.transform;
         Camera cam = Cam();
@@ -2880,9 +2884,18 @@ public class WiFiDownloader : MonoBehaviour
         MakeLbl(keyBG.transform, licenseKey ?? "ERROR",
                 20, accentOrange, new Vector2(0, 0), new Vector2(360, 36));
 
+        // ── Download link ──
+        MakeLbl(_licBG.transform, "DOWNLOAD THE DESKTOP APP:",
+                9, accentCyan, new Vector2(0, -78), new Vector2(380, 14));
+        var urlBG = MakeRect(_licBG.transform, "UrlBG");
+        SetRectT(urlBG, new Vector2(0, -96), new Vector2(380, 22));
+        urlBG.AddComponent<Image>().color = new Color(0.06f, 0.06f, 0.08f, 0.95f);
+        MakeLbl(urlBG.transform, "github.com/LaurenceHenson/RegionalAR/releases",
+                9, new Color(0.40f, 0.75f, 0.85f), new Vector2(0, 0), new Vector2(370, 20));
+
         // ── How-to instructions ──
-        MakeLbl(_licBG.transform, "1. Open the desktop app\n2. Enter YOUR CODE as the username\n3. Enter the LICENSE KEY above\n4. Click Activate",
-                10, textSecond, new Vector2(0, -90), new Vector2(380, 60));
+        MakeLbl(_licBG.transform, "1. Download & install from the link above\n2. Enter YOUR CODE as the username\n3. Enter the LICENSE KEY\n4. Click Activate",
+                10, textSecond, new Vector2(0, -130), new Vector2(380, 60));
 
         // ── Generate New Code button ──
         MakeClickableBtn(_licBG.transform, _licTF, "NEW CODE",
@@ -2965,6 +2978,8 @@ public class WiFiDownloader : MonoBehaviour
         _ctrlCanvas = panelRoot.AddComponent<Canvas>();
         _ctrlCanvas.renderMode = RenderMode.WorldSpace;
         _ctrlCanvas.sortingOrder = 30;
+        var ctrlScaler = panelRoot.AddComponent<CanvasScaler>();
+        ctrlScaler.dynamicPixelsPerUnit = 2.5f;  // sharper text at distance
         panelRoot.AddComponent<PanelStabilizer>();  // smooth tracking jitter
         _ctrlTF = panelRoot.transform;
         Camera cam = Cam();
@@ -2998,7 +3013,7 @@ public class WiFiDownloader : MonoBehaviour
         var headerBG = MakeRect(_ctrlBG.transform, "Header");
         SetRectT(headerBG, new Vector2(0, 206), new Vector2(556, 38));
         headerBG.AddComponent<Image>().color = new Color(0.03f, 0.03f, 0.05f, 0.98f);
-        MakeLbl(headerBG.transform, "BLOCKAR", 20, accentCyan, new Vector2(-90, 0), new Vector2(180, 34));
+        MakeLbl(headerBG.transform, "REGIONALAR", 16, accentCyan, new Vector2(-90, 0), new Vector2(180, 34));
         MakeLbl(headerBG.transform, "CONTROL", 12, textSecond, new Vector2(60, 0), new Vector2(120, 34));
 
         // Thin cyan separator line below header
@@ -3168,6 +3183,8 @@ public class WiFiDownloader : MonoBehaviour
         _wifiCanvas = panelRoot.AddComponent<Canvas>();
         _wifiCanvas.renderMode = RenderMode.WorldSpace;
         _wifiCanvas.sortingOrder = 31;
+        var wifiScaler = panelRoot.AddComponent<CanvasScaler>();
+        wifiScaler.dynamicPixelsPerUnit = 2.5f;
         panelRoot.AddComponent<PanelStabilizer>();  // smooth tracking jitter
         _wifiTF = panelRoot.transform;   // now holds RectTransform (valid)
         Camera cam = Cam();
@@ -3259,6 +3276,8 @@ public class WiFiDownloader : MonoBehaviour
         _libCanvas = panelRoot.AddComponent<Canvas>();
         _libCanvas.renderMode = RenderMode.WorldSpace;
         _libCanvas.sortingOrder = 32;
+        var libScaler = panelRoot.AddComponent<CanvasScaler>();
+        libScaler.dynamicPixelsPerUnit = 2.5f;
         panelRoot.AddComponent<PanelStabilizer>();  // smooth tracking jitter
         _libTF = panelRoot.transform;
         Camera cam = Cam();
