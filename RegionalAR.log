@@ -1,76 +1,68 @@
---- RegionalAR log started 2026-04-24 14:20:13 ---
-Selected: C:/Users/Laurence/Desktop/Scan Library/Head-Neck CTA Dicom (500 .dcm files)
+--- RegionalAR log started 2026-04-24 15:45:28 ---
+Selected: C:/Users/Laurence/Desktop/Scan Library/Female_MR_T1_CORONAL_CHEST_4.00000mm_130slices (130 .dcm files)
 Loading DICOM series...
-Found 500 DICOM slices
+Found 130 DICOM slices
 Reading slices... (this may take ~20 seconds)
-Volume shape: (500, 512, 512)  HU range: -1024 to 3071
+Volume shape: (130, 256, 256)  HU range: 0 to 1100
 Processing volume (HD) (AI)...
 AI: Running TotalSegmentator (this may take 1-3 minutes)...
 AI: First run downloads ~1.5 GB of models — please wait...
-AI: Found 38 anatomical structures
+AI: Found 46 anatomical structures
 AI: Creating body mask...
-AI: Body mask — 30,435,102 body, 100,636,898 background zeroed
+AI: Body mask — 328,155 body, 8,191,525 background zeroed
 AI: Densifying bone structures...
-AI: Bone densified — 8,056,089 voxels
+AI: Bone densified — 186,813 voxels
 AI: Filtering vessels and building tube morphology...
-AI: Removed 7105 small vessel clusters, kept 13 major vessels
-AI: Densified 1,848,507 vessel voxels
-AI: Tube closing added 1,650,721 fill voxels
+AI: Removed 2934 small vessel clusters, kept 2 major vessels
+AI: Densified 20,508 vessel voxels
+AI: Tube closing added 34,569 fill voxels
 AI: Vessel walls smoothed
 AI: Estimating nerve locations from anatomical landmarks...
 AI: Label-map lookup — spinal_cord IDs: [79], vertebrae IDs: 25 labels
-AI: Spinal cord — 447,534 voxels
-AI: Nerve root zone — 69,708 voxels (between cord and vertebrae)
-AI: Plexus estimation (35-iter dilation) — 788,996 additional voxels
-AI: Plexus vessel-anchor label lookup → 11 label IDs matched ('subclavian_artery', 'subclavian_vein', 'brachiocephalic_trunk', 'brachiocephalic_vein', 'common_carotid_artery', 'iliac_artery', 'iliac_vena', 'iliac_vein')
-AI:   matched label names: ['brachiocephalic_trunk', 'brachiocephalic_vein_left', 'brachiocephalic_vein_right', 'common_carotid_artery_left', 'common_carotid_artery_right', 'iliac_artery_left', 'iliac_artery_right', 'iliac_vena_left', 'iliac_vena_right', 'subclavian_artery_left', 'subclavian_artery_right']
-AI:   anchor-vessel voxels in this scan: 210,472
-AI: Vessel-anchored plexus corridor — added 52,769 voxels (10-iter halo around 210,472 anchor voxels)
-AI: Perivascular nerve estimate — 1,895,234 voxels
-AI: Nerve tube morphology — 4,567,628 total voxels
-AI: Remapped 4,567,628 nerve voxels to HU 140 (shader nerve range, bright)
-AI: Remapped 1,272,667 muscle voxels to HU 90 (shader muscle range)
+AI: No spinal cord label found — nerve estimation limited
+AI: Perivascular nerve estimate — 10,395 voxels
+AI: Nerve tube morphology — 38,090 total voxels
+AI: Remapped 38,090 nerve voxels to HU 140 (shader nerve range, bright)
+AI: Remapped 16,029 muscle voxels to HU 90 (shader muscle range)
 AI: Applying label-based boundary smoothing...
 AI: Border smoothing complete
-AI: Anatomical mask applied — 817,205 loose body-mask voxels removed (muscle bleed fix)
-AI: Bone mask from labels — 63 bone structures, 11,501,263 voxels
-AI: Vessel mask from labels — 17 vessel structures, 210,472 voxels
-AI: Muscle mask from labels — 16 muscle groups, 1,494,585 voxels
+AI: Anatomical mask applied — 41,912 loose body-mask voxels removed (muscle bleed fix)
+AI: Bone mask from labels — 63 bone structures, 77,761 voxels
+AI: Vessel mask from labels — 17 vessel structures, 7,146 voxels
+AI: Muscle mask from labels — 16 muscle groups, 29,381 voxels
 AI: Processing complete
 Target resolution: 256³ (16.0 MB) [AI enhanced]
-Resampling (512, 512, 500) -> (205, 205, 256) for Quest 3 GPU (256³ target)
+Volume already small enough: (256, 256, 130)
 Padded to 256³ cube
 MESH: Starting mesh extraction (AI=True, trimesh=True, ai_bone_mask=True, ai_vessel_mask=True, ai_nerve_mask=True, ai_muscle_mask=True)...
 MESH: Building bone mask...
-MESH: Using AI anatomical bone mask: 942,104 voxels
-MESH: Kept 11 components (largest 863,612.0 vox), dropped 11 small (<300 vox)
-MESH: Marching cubes → 362,919 verts, 723,668 tris
+MESH: Using AI anatomical bone mask: 77,761 voxels
+MESH: Kept 16 components (largest 26,951.0 vox), dropped 130 small (<300 vox)
+MESH: Marching cubes → 55,904 verts, 111,752 tris
 MESH: Taubin smoothing applied (25 iterations)
-MESH: Decimated to 150,000 tris (reduction=0.79)
-MESH: Exported Head-Neck_CTA_Dicom.omsh (75,355 verts, 150,000 tris, 3.4 MB)
+MESH: Exported Female_MR_T1_CORONAL_CHEST_4_00000mm_130slices.omsh (55,904 verts, 111,752 tris, 2.6 MB)
 VMESH: Building vessel mask...
-VMESH: AI anatomical vessel mask (major): 17,374 voxels
+VMESH: AI anatomical vessel mask (major): 7,146 voxels
 VMESH: Adding medium-vessel branches via Frangi...
-VMESH: Frangi supplement added 49,268 medium-vessel voxels (total 66,642)
-VMESH: Kept 47 components (largest 6,484.0 vox), dropped 7212 (<150 vox)
-VMESH: Marching cubes → 52,330 verts, 104,162 tris
+VMESH: Frangi supplement added 43,327 medium-vessel voxels (total 50,473)
+VMESH: Kept 29 components (largest 5,489.0 vox), dropped 3770 (<150 vox)
+VMESH: Marching cubes → 38,211 verts, 76,294 tris
 VMESH: Taubin smoothing applied (6 iterations)
-VMESH: Exported Head-Neck_CTA_Dicom.vmsh (52,330 verts, 104,162 tris, 2.4 MB)
-NMESH: Using AI anatomical nerve mask: 373,069 voxels
-NMESH: Kept 128 components (largest 264,058.0 vox), dropped 6819 (<100 vox)
-NMESH: Marching cubes → 225,714 verts, 450,400 tris
+VMESH: Exported Female_MR_T1_CORONAL_CHEST_4_00000mm_130slices.vmsh (38,211 verts, 76,294 tris, 1.7 MB)
+NMESH: Using AI anatomical nerve mask: 38,090 voxels
+NMESH: Kept 8 components (largest 34,738.0 vox), dropped 465 (<100 vox)
+NMESH: Marching cubes → 17,618 verts, 35,216 tris
 NMESH: Taubin smoothing applied (15 iterations)
-NMESH: Decimated to 80,000 tris (reduction=0.82)
-NMESH: Exported Head-Neck_CTA_Dicom.nmsh (40,288 verts, 80,000 tris, 1.8 MB)
-MMESH: Using AI anatomical muscle mask: 122,554 voxels
-MMESH: Kept 5 muscle groups (largest 44,491.0 vox), dropped 0 (<200 vox)
-MMESH: Marching cubes → 35,791 verts, 71,320 tris
+NMESH: Exported Female_MR_T1_CORONAL_CHEST_4_00000mm_130slices.nmsh (17,618 verts, 35,216 tris, 0.8 MB)
+MMESH: Using AI anatomical muscle mask: 29,381 voxels
+MMESH: Kept 6 muscle groups (largest 11,132.0 vox), dropped 28 (<200 vox)
+MMESH: Marching cubes → 13,182 verts, 26,340 tris
 MMESH: Taubin smoothing applied (20 iterations)
-MMESH: Exported Head-Neck_CTA_Dicom.mmsh (35,791 verts, 71,320 tris, 1.6 MB)
+MMESH: Exported Female_MR_T1_CORONAL_CHEST_4_00000mm_130slices.mmsh (13,182 verts, 26,340 tris, 0.6 MB)
 Normalising to 8-bit uint8
 Final shape: (256, 256, 256)  (D x H x W = Z x Y x X)
 Exporting .vol file...
-Exported: Head-Neck_CTA_Dicom.vol  (16.0 MB)
+Exported: Female_MR_T1_CORONAL_CHEST_4_00000mm_130slices.vol  (16.0 MB)
 Starting WiFi server...
 WiFi server running: http://10.0.0.88:8765/volume.vol
 UDP auto-discovery broadcasting on port 8766

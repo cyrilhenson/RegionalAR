@@ -367,7 +367,7 @@ def hd_smooth_volume(volume, spacing, log):
          wins), eliminating bone-in-vessel overlap artifacts.
     """
     if not _HAS_SCIPY:
-        log("HD: scipy not installed — skipping. Run install_blockar.bat to enable.")
+        log("HD: scipy not installed — skipping. Run install_regionalar.bat to enable.")
         return volume
 
     vol = volume.astype(np.float32)
@@ -473,7 +473,7 @@ def hd_ai_segment(volume, spacing, dicom_folder, log, mri_mode=False):
     """
     if not _HAS_TOTALSEG:
         log("AI: TotalSegmentator not installed.")
-        log("    Run install_blockar.bat or click 'Install AI' in the app.")
+        log("    Run install_regionalar.bat or click 'Install AI' in the app.")
         return None
 
     if not _HAS_SCIPY:
@@ -2298,12 +2298,12 @@ class App(tk.Tk):
                 f"{feature_name} — Install Required",
                 f"{feature_name} cannot be installed from the standalone .exe.\n\n"
                 "To enable all features:\n\n"
-                "1. Locate install_blockar.bat in the RegionalAR folder\n"
+                "1. Locate install_regionalar.bat in the RegionalAR folder\n"
                 "2. Double-click it to run the full installer\n"
                 "3. It installs Python, HD, and AI packages automatically\n"
                 "4. Use the 'RegionalAR Desktop' shortcut it creates\n\n"
                 "This only needs to be done once per PC.")
-            self._log(f"{feature_name}: Run install_blockar.bat for full features")
+            self._log(f"{feature_name}: Run install_regionalar.bat for full features")
         else:
             return False  # not frozen, proceed with pip install
         return True  # frozen, showed message instead

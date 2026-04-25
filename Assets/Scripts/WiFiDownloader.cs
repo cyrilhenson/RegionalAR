@@ -2890,7 +2890,7 @@ public class WiFiDownloader : MonoBehaviour
         var urlBG = MakeRect(_licBG.transform, "UrlBG");
         SetRectT(urlBG, new Vector2(0, -96), new Vector2(380, 22));
         urlBG.AddComponent<Image>().color = new Color(0.06f, 0.06f, 0.08f, 0.95f);
-        MakeLbl(urlBG.transform, "github.com/LaurenceHenson/RegionalAR/releases",
+        MakeLbl(urlBG.transform, "github.com/cyrilhenson/RegionalAR/releases",
                 9, new Color(0.40f, 0.75f, 0.85f), new Vector2(0, 0), new Vector2(370, 20));
 
         // ── How-to instructions ──

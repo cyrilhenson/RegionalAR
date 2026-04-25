@@ -74,6 +74,7 @@ __pycache__/
 
 # License files (user-specific, should not be committed)
 .regionalar_license
+MASTER_KEY.txt
 
 # Misc build/deploy scripts and logs
 build_output.txt
