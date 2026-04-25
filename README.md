@@ -35,7 +35,7 @@ The desktop companion app requires a license key, which is generated from your Q
 
 ### Option A: Prebuilt Executable (Windows, no Python needed)
 
-1. Download `RegionalAR.exe` from the [Releases](../../releases) page
+1. Download `RegionalAR.exe` from the [Releases](https://github.com/cyrilhenson/RegionalAR/releases) page
 2. Double-click to run
 3. Activate with your license key (see above)
 4. Browse to a DICOM folder, click **Process & Send**
@@ -127,6 +127,28 @@ The app produces `.vol` files in the OVOL format:
 | 24-27 | Reserved | uint32 |
 | 28-31 | Reserved | uint32 |
 | 32+ | Voxel data | uint8[] |
+
+## Troubleshooting
+
+**"No DICOM files found"**
+Make sure you're selecting the folder that directly contains the `.dcm` files, not a parent folder. Some scanners nest files in subdirectories — browse deeper until you see the individual slice files.
+
+**AI Segmentation not available**
+TotalSegmentator requires PyTorch and downloads ~1.5 GB of model weights on first use. Run `install_regionalar.bat` and select the AI segmentation option, or install manually with `pip install torch totalsegmentator`.
+
+**Quest not discovering the desktop app**
+Both devices must be on the same Wi-Fi network. Check that your firewall isn't blocking UDP port 8766 or TCP port 8080, and that you're not on a guest/isolated network (some routers block device-to-device traffic). The desktop app should show "Server ready" in the log.
+
+**Volume appears but looks wrong**
+- *Too dark/bright* — Try toggling MRI mode if the scan is an MRI (the app auto-detects, but manual override is available)
+- *Wrong orientation* — The app uses DICOM orientation tags. If these are missing or incorrect in the source scan, the volume may appear rotated
+- *Missing tissue layers* — AI segmentation results depend on scan quality and body region
+
+**License key not accepted**
+Double-check that you're entering the code and key exactly as shown on the Quest (case-sensitive). The code goes in the Username field, the license key in the License Key field.
+
+**Build fails with PyInstaller**
+Run from inside the RegionalAR folder: `cd Desktop\RegionalAR`, then use `python -m PyInstaller RegionalAR.spec` instead of calling `pyinstaller` directly. If dependencies are missing, run `pip install -r requirements.txt` first.
 
 ## License
 
