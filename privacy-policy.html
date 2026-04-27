@@ -1,62 +1,115 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RegionalAR — Privacy Policy</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            max-width: 720px;
-            margin: 0 auto;
-            padding: 40px 20px;
-            color: #1a1a2e;
-            line-height: 1.7;
-            background: #fafafa;
-        }
-        h1 { font-size: 1.8em; margin-bottom: 0.2em; }
-        h2 { font-size: 1.2em; margin-top: 2em; color: #2a2a4a; }
-        .updated { color: #666; font-size: 0.9em; margin-bottom: 2em; }
-        p { margin: 0.8em 0; }
-        a { color: #3366cc; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RegionalAR — Privacy Policy</title>
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    max-width: 760px;
+    margin: 40px auto;
+    padding: 0 20px;
+    line-height: 1.6;
+    color: #222;
+  }
+  h1 { border-bottom: 2px solid #0066cc; padding-bottom: 8px; }
+  h2 { color: #0066cc; margin-top: 32px; }
+  h3 { color: #444; }
+  table { border-collapse: collapse; width: 100%; margin: 16px 0; }
+  th, td { border: 1px solid #ccc; padding: 10px; text-align: left; vertical-align: top; }
+  th { background: #f5f5f5; }
+  code { background: #f0f0f0; padding: 2px 6px; border-radius: 3px; font-size: 0.9em; }
+  .updated { color: #666; font-style: italic; }
+</style>
 </head>
 <body>
-    <h1>RegionalAR — Privacy Policy</h1>
-    <p class="updated">Last updated: April 21, 2026</p>
 
-    <p>RegionalAR ("the App") is a medical imaging visualization tool for Meta Quest developed by Laurence Henson. This privacy policy explains how the App handles your information.</p>
+<h1>RegionalAR — Privacy Policy</h1>
+<p class="updated">Last updated: April 27, 2026</p>
 
-    <h2>Information We Collect</h2>
-    <p>RegionalAR does not collect, store, or transmit any personal information. The App does not require user accounts, login credentials, or any form of registration.</p>
+<p>RegionalAR ("the App") is a medical imaging visualization tool for Meta Quest developed by Laurence Henson, MD. This privacy policy explains what data the App collects, how it is used, how it is stored, and how you can request its deletion.</p>
 
-    <h2>Medical Imaging Data</h2>
-    <p>DICOM scan data that you load into RegionalAR is processed and stored entirely on your device. Scan files are transferred from your desktop computer to your Meta Quest headset over your local WiFi network only. No medical imaging data is transmitted to external servers, cloud services, or third parties.</p>
+<h2>Summary</h2>
+<p>RegionalAR does not collect medical imaging data, usage analytics, or personally identifying information directly. The App does, however, use Meta Horizon Platform features to verify in-app purchases and apply age-appropriate access. The data fields used by these features are described in detail below.</p>
 
-    <h2>Network Usage</h2>
-    <p>The App uses your local network (WiFi) solely for the purpose of receiving scan files from the companion RegionalAR Desktop application running on your computer. This communication occurs exclusively within your local network. The App does not access the internet, connect to remote servers, or transmit any data outside your local network.</p>
+<h2>Data Collected via Meta Horizon Platform</h2>
+<p>To support in-app purchases and age-appropriate access on Meta Quest, the App requests the following Platform Features. The data is provided to the App by the Meta Horizon Platform; the App does not collect this data independently.</p>
 
-    <h2>Analytics and Tracking</h2>
-    <p>RegionalAR does not include any analytics, telemetry, crash reporting, or tracking software. No usage data is collected or shared.</p>
+<table>
+<thead>
+<tr><th>Data Field</th><th>What Is Collected</th><th>How It Is Used</th><th>Where It Is Stored</th></tr>
+</thead>
+<tbody>
+<tr>
+  <td><strong>USER_ID</strong></td>
+  <td>An anonymous, app-scoped Meta user identifier provided by the Oculus Platform SDK.</td>
+  <td>Used solely to verify entitlement to the optional Desktop Companion in-app purchase, and to generate a license key bound to that entitlement so the user can activate the desktop application they have purchased.</td>
+  <td>Held in memory only during the app session. Not transmitted to any server operated by the developer. Not written to persistent storage.</td>
+</tr>
+<tr>
+  <td><strong>USER_AGE</strong> (Age Category)</td>
+  <td>An age category (e.g., teen / adult) provided by the Meta Horizon Platform. The App does not receive a date of birth or exact age.</td>
+  <td>Used to confirm the user meets the minimum age for medical educational content prior to displaying anatomical visualizations.</td>
+  <td>Held in memory only during the app session. Not stored, logged, or transmitted.</td>
+</tr>
+<tr>
+  <td><strong>IN_APP_PURCHASES (IAP)</strong></td>
+  <td>Purchase status of the optional Desktop Companion add-on (SKU: <code>desktop_license</code>), as reported by the Oculus Platform SDK.</td>
+  <td>Used to determine whether to display the license activation panel inside the App. The license key generated for activation is derived locally on-device using the user's Meta-provided USER_ID and a developer secret; no purchase information is sent off-device.</td>
+  <td>Purchase status is fetched from Meta on demand. The generated license key is shown on screen so the user can enter it into the Desktop Companion. It is not transmitted by the Quest app to any third party.</td>
+</tr>
+</tbody>
+</table>
 
-    <h2>Third-Party Services</h2>
-    <p>The App does not integrate with any third-party services, advertising networks, or data brokers.</p>
+<p>The App does not use <code>DEVICE_BAN</code>, ad identifiers, location data, voice data, hand or eye tracking data, microphone data, photographs, or contact lists.</p>
 
-    <h2>Data Storage</h2>
-    <p>All application data, including downloaded scan volumes and user preferences, is stored locally on your Meta Quest device. You can delete this data at any time by uninstalling the App or clearing its storage through the device settings.</p>
+<h2>Medical Imaging Data</h2>
+<p>DICOM/MRI/CT scan data that you process with the optional RegionalAR Desktop Companion is handled entirely on your own computer and your own Meta Quest headset:</p>
+<ul>
+  <li>Scan files are read by the Desktop Companion locally on your PC.</li>
+  <li>Processed volume files are transferred to the Quest only over your local Wi-Fi network, using direct device-to-device communication.</li>
+  <li>No medical imaging data is sent to the developer, to Meta, to any cloud service, or to any third party.</li>
+  <li>No medical imaging data is associated with your Meta account or with USER_ID.</li>
+</ul>
 
-    <h2>Children's Privacy</h2>
-    <p>RegionalAR is designed for medical professionals and students. It is not directed at children under 13. We do not knowingly collect any information from children.</p>
+<h2>Network Usage</h2>
+<p>The Quest App's only network use is local-network discovery (UDP broadcast) and local-network file download (HTTP) from the Desktop Companion. The App does not connect to remote servers operated by the developer, does not include analytics, and does not transmit usage data over the internet.</p>
 
-    <h2>Medical Disclaimer</h2>
-    <p>RegionalAR is an educational and training tool. It is not intended for clinical diagnosis, treatment planning, or patient care. The visualizations provided are for educational purposes only and should not be used as a substitute for professional medical judgment.</p>
+<h2>Analytics and Tracking</h2>
+<p>RegionalAR does not include analytics, telemetry, crash reporting, advertising SDKs, or any third-party tracking software. No usage data is collected or shared with the developer or any third party.</p>
 
-    <h2>Changes to This Policy</h2>
-    <p>If we update this privacy policy, we will revise the "Last updated" date above. Continued use of the App after any changes constitutes acceptance of the updated policy.</p>
+<h2>Data Retention</h2>
+<p>The developer does not retain any user data, because the developer does not receive any user data. All Platform Feature data (USER_ID, age category, IAP status) is provided by the Meta Horizon Platform on demand and held only in memory during the App session.</p>
 
-    <h2>Contact</h2>
-    <p>If you have questions about this privacy policy, please contact:<br>
-    Laurence Henson<br>
-    <a href="mailto:laurence.cyril.henson@gmail.com">laurence.cyril.henson@gmail.com</a></p>
+<h2>Your Right to Request Deletion</h2>
+<p>Because the developer does not store user data on any server, there is no developer-held data to delete. You can, however, fully remove all locally-held App data and revoke the App's access to your Meta account using the following methods:</p>
+
+<h3>1. Delete data stored on your Quest device</h3>
+<p>Uninstall RegionalAR from your Meta Quest 3 (Apps → RegionalAR → ⋮ → Uninstall). This deletes all downloaded scan volumes, cached settings, and any locally generated license data from your device.</p>
+
+<h3>2. Revoke Meta Horizon Platform access</h3>
+<p>You can remove RegionalAR's access to your Meta account at any time through Meta's standard account controls: <a href="https://accountscenter.meta.com/">https://accountscenter.meta.com/</a> → Apps and websites → Active. This stops the Meta Platform from providing USER_ID, age category, or IAP status to the App.</p>
+
+<h3>3. Delete data stored by the Desktop Companion</h3>
+<p>The Desktop Companion stores its activation state in a file named <code>.regionalar_license</code> in your user folder. Deleting this file removes the local license activation. Processed volume files (<code>.vol</code>, <code>.bmsh</code>, <code>.vmsh</code>, <code>.nmsh</code>, <code>.omsh</code>) created by the Desktop Companion are written to a folder you choose; you may delete them at any time.</p>
+
+<h3>4. Email-based deletion request</h3>
+<p>If you have any other concern about data potentially associated with your use of RegionalAR, you may email <a href="mailto:laurence.cyril.henson@gmail.com">laurence.cyril.henson@gmail.com</a> with the subject "RegionalAR Data Deletion Request." We will respond within 30 days. Please note that because the App does not transmit user data to the developer, there is in practice no developer-held data to remove; this address exists so that any user concern can still be acknowledged and addressed.</p>
+
+<h2>Children's Privacy</h2>
+<p>RegionalAR is intended for medical professionals, medical students, and adult learners. It is not directed at children under 13, and the Meta Horizon Platform's age category check is used to gate access accordingly. The developer does not knowingly collect information from children.</p>
+
+<h2>Medical Disclaimer</h2>
+<p>RegionalAR is an educational and training tool. It is not a medical device, is not intended for clinical diagnosis, treatment planning, or patient care, and has not been cleared by the FDA or any other regulatory body for clinical use. Visualizations are provided for educational purposes only and must not be used as a substitute for professional medical judgment.</p>
+
+<h2>Changes to This Policy</h2>
+<p>If we update this privacy policy, we will revise the "Last updated" date at the top of this page. Material changes that affect what data is collected or how it is used will be reflected in this document before they take effect in the App.</p>
+
+<h2>Contact</h2>
+<p>For questions about this privacy policy or to make a data-related request:<br>
+Laurence Henson, MD<br>
+<a href="mailto:laurence.cyril.henson@gmail.com">laurence.cyril.henson@gmail.com</a></p>
+
 </body>
 </html>
