@@ -78,6 +78,7 @@ public class WiFiDownloader : MonoBehaviour
         public float       minVal, maxVal; // mapped range
         public System.Action<float> onChanged; // callback with mapped value
         public string      name;
+        public bool        isVertical;    // true = vertical slider (Y axis)
     }
     List<SliderCol> _sliderCols = new List<SliderCol>();
     int _activeSlider = -1;  // index of slider being dragged (-1 = none)
@@ -160,6 +161,10 @@ public class WiFiDownloader : MonoBehaviour
     GameObject    _libProxy;
     BoxCollider   _libProxyCol;
     GameObject    _libContent;       // parent for scan entry buttons
+    GameObject    _libScrollTrack;   // vertical scroll slider visual container
+    int           _libScrollColIdx = -1;  // index into _sliderCols
+    float         _libScrollMax;     // max scroll offset in canvas px
+    float         _libScrollValue;   // current scroll offset 0..1
     string        _activeScanName;
     List<ScanEntry> _scanEntries = new List<ScanEntry>();
 
@@ -1072,9 +1077,11 @@ public class WiFiDownloader : MonoBehaviour
                     var dotR = dot.GetComponent<Renderer>();
                     if (dotR != null) dotR.material.color = new Color(0f, 0.85f, 0.95f);
 
-                    // Map hit position along slider's local X axis to 0..1
+                    // Map hit position along slider's local axis to 0..1
                     Vector3 localHit = sc.go.transform.InverseTransformPoint(sh.point);
-                    float t = Mathf.Clamp01(localHit.x / 1f + 0.5f); // collider is unit box, -0.5..0.5
+                    float t = sc.isVertical
+                        ? Mathf.Clamp01(localHit.y / 1f + 0.5f)   // vertical: bottom=0 top=1
+                        : Mathf.Clamp01(localHit.x / 1f + 0.5f);  // horizontal: left=0 right=1
                     UpdateSliderValue(_activeSlider, t);
                 }
             }
@@ -1180,19 +1187,33 @@ public class WiFiDownloader : MonoBehaviour
         sc.value = t;
         _sliderCols[idx] = sc; // struct copy back
 
-        // Update fill bar width
-        if (sc.fill != null)
+        if (sc.isVertical)
         {
-            var fillRT = sc.fill.GetComponent<RectTransform>();
-            fillRT.anchorMax = new Vector2(t, 1);
+            // Vertical slider: fill grows upward, knob moves along Y
+            if (sc.fill != null)
+            {
+                var fillRT = sc.fill.GetComponent<RectTransform>();
+                fillRT.anchorMax = new Vector2(1, t);
+            }
+            if (sc.knob != null)
+            {
+                sc.knob.anchorMin = sc.knob.anchorMax = new Vector2(0.5f, t);
+                sc.knob.anchoredPosition = Vector2.zero;
+            }
         }
-
-        // Update knob position
-        if (sc.knob != null)
+        else
         {
-            // Knob anchored at (t, 0.5) within parent
-            sc.knob.anchorMin = sc.knob.anchorMax = new Vector2(t, 0.5f);
-            sc.knob.anchoredPosition = Vector2.zero;
+            // Horizontal slider: fill grows rightward, knob moves along X
+            if (sc.fill != null)
+            {
+                var fillRT = sc.fill.GetComponent<RectTransform>();
+                fillRT.anchorMax = new Vector2(t, 1);
+            }
+            if (sc.knob != null)
+            {
+                sc.knob.anchorMin = sc.knob.anchorMax = new Vector2(t, 0.5f);
+                sc.knob.anchoredPosition = Vector2.zero;
+            }
         }
 
         // Invoke callback with mapped value
@@ -1244,6 +1265,57 @@ public class WiFiDownloader : MonoBehaviour
         if (knob != null)
         {
             knob.anchorMin = knob.anchorMax = new Vector2(initT, 0.5f);
+            knob.anchoredPosition = Vector2.zero;
+        }
+
+        go.SetActive(false);
+    }
+
+    /// Register a VERTICAL slider: 3D collider, fill grows upward, knob moves along Y
+    void RegSliderColVertical(Transform panel, Vector2 canvasPos, Vector2 canvasSize,
+                              Image fill, RectTransform knob,
+                              float minVal, float maxVal, float initVal,
+                              System.Action<float> onChanged, string name)
+    {
+        var go = new GameObject($"SC_{name.Replace(" ", "")}");
+        var col = go.AddComponent<BoxCollider>();
+        col.size = Vector3.one;
+        go.transform.localScale = new Vector3(
+            canvasSize.x * 0.001f,
+            canvasSize.y * 0.001f,
+            0.025f
+        );
+
+        float initT = Mathf.InverseLerp(minVal, maxVal, initVal);
+
+        var baseSize = new Vector3(canvasSize.x * 0.001f, canvasSize.y * 0.001f, 0.025f);
+        _sliderCols.Add(new SliderCol
+        {
+            go         = go,
+            col        = col,
+            panelTF    = panel,
+            localOffset = new Vector3(canvasPos.x * 0.001f, canvasPos.y * 0.001f, 0),
+            baseSize    = baseSize,
+            widthMeters = canvasSize.y * 0.001f, // height for vertical
+            fill       = fill,
+            knob       = knob,
+            value      = initT,
+            minVal     = minVal,
+            maxVal     = maxVal,
+            onChanged  = onChanged,
+            name       = name,
+            isVertical = true
+        });
+
+        // Set initial fill and knob (vertical)
+        if (fill != null)
+        {
+            var fillRT = fill.GetComponent<RectTransform>();
+            fillRT.anchorMax = new Vector2(1, initT);
+        }
+        if (knob != null)
+        {
+            knob.anchorMin = knob.anchorMax = new Vector2(0.5f, initT);
             knob.anchoredPosition = Vector2.zero;
         }
 
@@ -1810,7 +1882,7 @@ public class WiFiDownloader : MonoBehaviour
             _downloadedThisSession = true;
             SetStatus($"Volume loaded! ({new FileInfo(finalPath).Length / 1024}KB)");
             Set3DDebug("LOADED OK");
-            // Reposition volume in front of user after loading
+            // Reposition volume (WiFi uploads keep scene scale)
             vr.PositionInFrontOfUser();
             yield return new WaitForSeconds(2f);
             if (_wifiBG != null) _wifiBG.SetActive(false);
@@ -1914,78 +1986,135 @@ public class WiFiDownloader : MonoBehaviour
     // ═════════════════════════════════════════════════════════════
     //  BUNDLED SAMPLE — first-launch copy from StreamingAssets
     // ═════════════════════════════════════════════════════════════
-    const string SAMPLE_NAME = "Head-Neck_CTA";
+    // All bundled samples in StreamingAssets — first entry is the default auto-load.
+    static readonly string[] BUNDLED_SAMPLES = {
+        "Head-Neck_CTA",
+        "shoulder_right",
+        "shoulder_left",
+        "hip_right",
+        "hip_left",
+        "thigh_right",
+        "thigh_left",
+        "knee_right",
+        "knee_left",
+    };
+    const string SAMPLE_NAME = "Head-Neck_CTA";  // default auto-load
+
+    /// Returns true for the 8 generated anatomy samples that need scale=1 on load.
+    /// Head-Neck_CTA and user-uploaded DICOMs keep their existing/scene scale.
+    static readonly HashSet<string> ANATOMY_SAMPLES = new HashSet<string> {
+        "shoulder_right", "shoulder_left", "hip_right", "hip_left",
+        "thigh_right", "thigh_left", "knee_right", "knee_left",
+    };
+    static bool IsAnatomySample(string name) => ANATOMY_SAMPLES.Contains(name);
     static readonly string[] SAMPLE_EXTS = { ".vol", ".omsh", ".vmsh", ".nmsh", ".mmsh" };
+
+    // Marker version — bump this when adding new bundled samples so
+    // existing users get the new ones installed on their next launch.
+    const string SAMPLES_MARKER_VERSION = "4";  // bumped: bone-bbox normalization + tissue dilation fixes
 
     IEnumerator InstallBundledSample()
     {
-        // Check if sample already installed (marker file)
+        // Check marker — includes version so new samples get installed on update
         string markerPath = Path.Combine(UnityEngine.Application.persistentDataPath, ".sample_installed");
         if (File.Exists(markerPath))
         {
-            Debug.Log("[RegionalAR] Bundled sample already installed — skipping.");
-            yield break;
+            string ver = "";
+            try { ver = File.ReadAllText(markerPath).Trim(); } catch { }
+            if (ver == SAMPLES_MARKER_VERSION)
+            {
+                Debug.Log("[RegionalAR] Bundled samples already installed (v" + SAMPLES_MARKER_VERSION + ") — skipping.");
+                yield break;
+            }
+            Debug.Log("[RegionalAR] Marker version mismatch (have=" + ver + ", want=" + SAMPLES_MARKER_VERSION + ") — installing new samples.");
         }
 
         string libDir = ScanLibraryDir();
-        string volDest = Path.Combine(libDir, SAMPLE_NAME + ".vol");
 
-        // If the .vol already exists in the library, mark done and skip
-        if (File.Exists(volDest))
+        int installed = 0;
+        foreach (string sampleName in BUNDLED_SAMPLES)
         {
-            try { File.WriteAllText(markerPath, "1"); } catch { }
-            Debug.Log("[RegionalAR] Sample .vol already in library — marking installed.");
-            yield break;
-        }
-
-        Debug.Log("[RegionalAR] Installing bundled sample from StreamingAssets...");
-
-        foreach (string ext in SAMPLE_EXTS)
-        {
-            string srcPath = Path.Combine(UnityEngine.Application.streamingAssetsPath, SAMPLE_NAME + ext);
-            string dstPath = Path.Combine(libDir, SAMPLE_NAME + ext);
-
-            // On Android, StreamingAssets are inside the APK jar —
-            // must use UnityWebRequest. On editor/standalone, direct copy works.
-            #if UNITY_ANDROID && !UNITY_EDITOR
-            using (var req = UnityWebRequest.Get(srcPath))
+            string volDest = Path.Combine(libDir, sampleName + ".vol");
+            if (File.Exists(volDest))
             {
-                yield return req.SendWebRequest();
-                if (req.result == UnityWebRequest.Result.Success)
-                {
-                    try { File.WriteAllBytes(dstPath, req.downloadHandler.data); }
-                    catch (Exception e) { Debug.LogWarning($"[RegionalAR] Sample write error ({ext}): {e.Message}"); }
-                }
-                else
-                {
-                    Debug.LogWarning($"[RegionalAR] Sample fetch error ({ext}): {req.error}");
-                }
+                Debug.Log($"[RegionalAR] {sampleName} already in library — skipping.");
+                // Still register in index if not there
+                EnsureScanInIndex(sampleName, volDest);
+                installed++;
+                continue;
             }
-            #else
-            // Editor / standalone: direct file copy
-            if (File.Exists(srcPath))
+
+            Debug.Log($"[RegionalAR] Installing bundled sample: {sampleName}...");
+
+            foreach (string ext in SAMPLE_EXTS)
             {
-                try { File.Copy(srcPath, dstPath, overwrite: true); }
-                catch (Exception e) { Debug.LogWarning($"[RegionalAR] Sample copy error ({ext}): {e.Message}"); }
+                string srcPath = Path.Combine(UnityEngine.Application.streamingAssetsPath, sampleName + ext);
+                string dstPath = Path.Combine(libDir, sampleName + ext);
+
+                // On Android, StreamingAssets are inside the APK jar —
+                // must use UnityWebRequest. On editor/standalone, direct copy works.
+                #if UNITY_ANDROID && !UNITY_EDITOR
+                using (var req = UnityWebRequest.Get(srcPath))
+                {
+                    yield return req.SendWebRequest();
+                    if (req.result == UnityWebRequest.Result.Success)
+                    {
+                        try { File.WriteAllBytes(dstPath, req.downloadHandler.data); }
+                        catch (Exception e) { Debug.LogWarning($"[RegionalAR] Sample write error ({sampleName}{ext}): {e.Message}"); }
+                    }
+                    else
+                    {
+                        // Not all samples have all mesh files — .vol missing is an error, mesh missing is OK
+                        if (ext == ".vol")
+                            Debug.LogWarning($"[RegionalAR] Sample fetch error ({sampleName}{ext}): {req.error}");
+                    }
+                }
+                #else
+                if (File.Exists(srcPath))
+                {
+                    try { File.Copy(srcPath, dstPath, overwrite: true); }
+                    catch (Exception e) { Debug.LogWarning($"[RegionalAR] Sample copy error ({sampleName}{ext}): {e.Message}"); }
+                }
+                yield return null;
+                #endif
             }
-            yield return null;
-            #endif
+
+            // Register in library index
+            if (File.Exists(volDest))
+            {
+                long sz = new FileInfo(volDest).Length;
+                SaveScanToLibrary(sampleName, volDest, sz);
+                Debug.Log($"[RegionalAR] Bundled sample installed: {sampleName} ({sz / 1024}KB)");
+                installed++;
+            }
+            else
+            {
+                Debug.LogWarning($"[RegionalAR] {sampleName}.vol not found after copy — skipping.");
+            }
         }
 
-        // Register in library index
-        if (File.Exists(volDest))
-        {
-            long sz = new FileInfo(volDest).Length;
-            SaveScanToLibrary(SAMPLE_NAME, volDest, sz);
-            Debug.Log($"[RegionalAR] Bundled sample installed: {SAMPLE_NAME} ({sz / 1024}KB)");
-        }
-        else
-        {
-            Debug.LogWarning("[RegionalAR] Sample .vol not found after copy — install may have failed.");
-        }
+        Debug.Log($"[RegionalAR] Bundled sample install complete: {installed}/{BUNDLED_SAMPLES.Length} installed.");
 
-        // Write marker so we don't repeat on next launch
-        try { File.WriteAllText(markerPath, "1"); } catch { }
+        // Write versioned marker so we don't repeat (until next sample set update)
+        try { File.WriteAllText(markerPath, SAMPLES_MARKER_VERSION); } catch { }
+    }
+
+    /// Ensure a sample is in the library index (idempotent).
+    void EnsureScanInIndex(string name, string volPath)
+    {
+        string idxPath = ScanIndexPath();
+        if (File.Exists(idxPath))
+        {
+            try
+            {
+                string existing = File.ReadAllText(idxPath);
+                if (existing.Contains(name + "|")) return; // already indexed
+            }
+            catch { }
+        }
+        long sz = 0;
+        try { sz = new FileInfo(volPath).Length; } catch { }
+        SaveScanToLibrary(name, volPath, sz);
     }
 
     IEnumerator AutoLoadBundledSample()
@@ -2025,6 +2154,7 @@ public class WiFiDownloader : MonoBehaviour
         {
             vr.ReloadVolumeSync(volPath);
             _activeScanName = SAMPLE_NAME;
+            // Don't reset scale for auto-load (Head-Neck CTA uses scene default)
             vr.PositionInFrontOfUser();
             SetStatus($"Loaded: {SAMPLE_NAME}");
             Debug.Log($"[RegionalAR] Auto-loaded bundled sample: {SAMPLE_NAME}");
@@ -2112,7 +2242,9 @@ public class WiFiDownloader : MonoBehaviour
             vr.ReloadVolumeSync(entry.path);
             _activeScanName = entry.name;
 
-            // Reposition volume in front of user after loading
+            // Reset scale for anatomy samples only (Head-Neck and DICOMs keep scene scale)
+            if (IsAnatomySample(entry.name))
+                vr.transform.localScale = Vector3.one;
             vr.PositionInFrontOfUser();
 
             SetStatus($"Loaded: {entry.name} ({entry.sizeBytes / 1024}KB)");
@@ -2363,16 +2495,22 @@ public class WiFiDownloader : MonoBehaviour
     {
         if (_libContent == null) return;
 
-        // Destroy existing scan entry buttons (but keep the header/close)
-        // Scan entries are children of _libContent
+        // Destroy existing scan entry buttons (children of _libContent)
         for (int i = _libContent.transform.childCount - 1; i >= 0; i--)
             Destroy(_libContent.transform.GetChild(i).gameObject);
 
+        // Destroy previous DELETE ALL button from _libBG (if any)
+        if (_libBG != null)
+        {
+            var oldDel = _libBG.transform.Find("DELETEALL");
+            if (oldDel != null) Destroy(oldDel.gameObject);
+        }
+
         // Also remove old library scan BtnCols (keep non-lib ones)
-        // We tag library scan buttons with names starting with "LibScan_"
+        // We tag library scan buttons with names starting with "LibScan_" or "DELETE ALL"
         for (int i = _btnCols.Count - 1; i >= 0; i--)
         {
-            if (_btnCols[i].name.StartsWith("LibScan_"))
+            if (_btnCols[i].name.StartsWith("LibScan_") || _btnCols[i].name == "DELETE ALL")
             {
                 if (_btnCols[i].col != null) Destroy(_btnCols[i].col.gameObject);
                 _btnCols.RemoveAt(i);
@@ -2386,17 +2524,18 @@ public class WiFiDownloader : MonoBehaviour
             return;
         }
 
-        // "Delete All" button if many entries
+        // "Delete All" button — on _libBG (not _libContent) so it stays fixed during scroll
         if (_scanEntries.Count > 1)
         {
-            MakeClickableBtn(_libContent.transform, _libTF, "DELETE ALL",
-                new Color(0.15f, 0.03f, 0.02f, 0.95f), 10, new Vector2(160, 24), new Vector2(80, 28),
+            MakeClickableBtn(_libBG.transform, _libTF, "DELETE ALL",
+                new Color(0.15f, 0.03f, 0.02f, 0.95f), 10, new Vector2(160, 210), new Vector2(80, 26),
                 DeleteAllScans);
         }
 
-        float yStart = -10f;
-        float rowH = 40f;
-        for (int i = 0; i < _scanEntries.Count && i < 6; i++)  // max 6 visible (fits panel)
+        float yStart = 175f;  // start below DELETE ALL with padding (top = +220)
+        float rowH = 34f;    // compact rows to fit more entries
+
+        for (int i = 0; i < _scanEntries.Count; i++)  // no cap
         {
             float y = yStart - i * rowH;
             var e = _scanEntries[i];
@@ -2441,33 +2580,99 @@ public class WiFiDownloader : MonoBehaviour
 #else
             // Quest layout: [ LOAD (name + date)       ] [DEL]  — no rename
             var scanBtn = MakeRect(_libContent.transform, $"LibEntry_{i}");
-            SetRectT(scanBtn, new Vector2(-30, y), new Vector2(340, 36));
+            SetRectT(scanBtn, new Vector2(-30, y), new Vector2(340, 30));
             scanBtn.AddComponent<Image>().color = isActive
                 ? new Color(.1f, .35f, .15f)
                 : new Color(.08f, .1f, .22f);
             var lbl = new GameObject("Lbl"); lbl.transform.SetParent(scanBtn.transform, false);
             var lr = lbl.AddComponent<RectTransform>();
             lr.anchorMin = Vector2.zero; lr.anchorMax = Vector2.one;
-            lr.offsetMin = new Vector2(8, 2); lr.offsetMax = new Vector2(-8, -2);
+            lr.offsetMin = new Vector2(8, 1); lr.offsetMax = new Vector2(-8, -1);
             var lt = lbl.AddComponent<Text>();
-            SetFont(lt, 12, isActive ? new Color(.5f, 1f, .6f) : Color.white);
+            SetFont(lt, 11, isActive ? new Color(.5f, 1f, .6f) : Color.white);
             lt.text = label; lt.alignment = TextAnchor.MiddleLeft;
 
-            RegBtnCol(_libTF, new Vector2(-30, y), new Vector2(340, 36),
+            RegBtnCol(_libTF, new Vector2(-30, y), new Vector2(340, 30),
                       () => LoadScanFromLibrary(capturedIdx), null, $"LibScan_Load_{i}");
 
             // Delete button (red X)
             var delBtn = MakeRect(_libContent.transform, $"LibDel_{i}");
-            SetRectT(delBtn, new Vector2(185, y), new Vector2(40, 36));
+            SetRectT(delBtn, new Vector2(185, y), new Vector2(34, 30));
             delBtn.AddComponent<Image>().color = new Color(.5f, .1f, .1f);
-            MakeLbl(delBtn.transform, "X", 16, Color.white, Vector2.zero, new Vector2(40, 36));
-            RegBtnCol(_libTF, new Vector2(185, y), new Vector2(40, 36),
+            MakeLbl(delBtn.transform, "X", 14, Color.white, Vector2.zero, new Vector2(34, 30));
+            RegBtnCol(_libTF, new Vector2(185, y), new Vector2(34, 30),
                       () => DeleteScanFromLibrary(capturedIdx), null, $"LibScan_Del_{i}");
 #endif
         }
 
+        // ── Calculate scroll bounds & show/hide scroll slider ───
+        float visibleH = 400f;  // visible content area height
+        float totalH   = _scanEntries.Count * rowH + 16f; // +margin
+        _libScrollMax  = Mathf.Max(0f, totalH - visibleH);
+        bool needsScroll = _libScrollMax > 0f;
+        if (_libScrollTrack != null) _libScrollTrack.SetActive(needsScroll);
+        if (_libScrollColIdx >= 0 && _libScrollColIdx < _sliderCols.Count
+            && _sliderCols[_libScrollColIdx].go != null)
+            _sliderCols[_libScrollColIdx].go.SetActive(needsScroll && _libOpen);
+
+        // Reset scroll to top
+        _libScrollValue = 0f;
+        if (needsScroll) UpdateSliderValue(_libScrollColIdx, 1f); // 1 = top
+        ApplyLibScroll(1f);  // show from top
+
         // Activate all newly created lib buttons if panel is open
         if (_libOpen) SetBtnColsActive(_libTF, true);
+    }
+
+    /// Apply library scroll: val 1=top, 0=bottom. Offsets content and hides entries outside view.
+    void ApplyLibScroll(float val)
+    {
+        // val: 1 = top of list (offset 0), 0 = bottom of list (offset max)
+        float scrollOffset = (1f - val) * _libScrollMax;
+        _libScrollValue = val;
+
+        if (_libContent != null)
+        {
+            // Shift content up by scrollOffset so lower entries become visible
+            var rt = _libContent.GetComponent<RectTransform>();
+            rt.anchoredPosition = new Vector2(0, -10f + scrollOffset);
+        }
+
+        // Hide scan entry rows + their 3D colliders when outside visible area
+        if (_libContent == null) return;
+
+        const float rowH   = 34f;
+        const float yStart = 175f;
+        // Visible band in _libContent local coords
+        // Content is 440px, center at 0, so visible from +220 to -220
+        const float viewTop = 220f;
+        const float viewBot = -220f;
+
+        for (int i = 0; i < _scanEntries.Count; i++)
+        {
+            float entryLocalY = yStart - i * rowH;
+            float visualY = entryLocalY + scrollOffset; // position after scroll
+
+            bool visible = visualY <= viewTop && visualY >= viewBot;
+
+            // Show/hide the UI elements (children named LibEntry_i, LibDel_i, LibRen_i)
+            foreach (string prefix in new[] { "LibEntry_", "LibDel_", "LibRen_" })
+            {
+                var child = _libContent.transform.Find($"{prefix}{i}");
+                if (child != null) child.gameObject.SetActive(visible);
+            }
+
+            // Show/hide the 3D colliders (named LibScan_Load_i, LibScan_Del_i, LibScan_Ren_i)
+            foreach (string prefix in new[] { "LibScan_Load_", "LibScan_Del_", "LibScan_Ren_" })
+            {
+                string btnName = $"{prefix}{i}";
+                for (int b = 0; b < _btnCols.Count; b++)
+                {
+                    if (_btnCols[b].name == btnName && _btnCols[b].go != null)
+                        _btnCols[b].go.SetActive(visible && _libOpen);
+                }
+            }
+        }
     }
 
     // ═════════════════════════════════════════════════════════════
@@ -3285,11 +3490,11 @@ public class WiFiDownloader : MonoBehaviour
         else _needsCameraRetry = true;
 
         var crt = panelRoot.GetComponent<RectTransform>();
-        crt.sizeDelta = new Vector2(500, 400);
+        crt.sizeDelta = new Vector2(500, 520);
         crt.pivot = new Vector2(0.5f, 0.5f);
         panelRoot.transform.localScale = Vector3.one * 0.001f;
 
-        CreateProxy(out _libProxy, out _libProxyCol, 0.50f, 0.40f, "LibProxy");
+        CreateProxy(out _libProxy, out _libProxyCol, 0.50f, 0.52f, "LibProxy");
 
         _libBG = MakeRect(panelRoot.transform, "LibBG");
         FillParent(_libBG);
@@ -3308,15 +3513,60 @@ public class WiFiDownloader : MonoBehaviour
         lbInner.AddComponent<Image>().color = new Color(0.02f, 0.02f, 0.04f, 0.95f);
 
         MakeLbl(_libBG.transform, "SCAN LIBRARY",
-                18, new Color(0.00f, 0.74f, 0.83f), new Vector2(0, 170), new Vector2(460, 32));
+                18, new Color(0.00f, 0.74f, 0.83f), new Vector2(0, 238), new Vector2(460, 32));
 
-        // Scrollable content area
+        // Content area — tall enough for ~12 entries at 34px each
         _libContent = MakeRect(_libBG.transform, "LibContent");
-        SetRectT(_libContent, new Vector2(0, 10), new Vector2(460, 300));
+        SetRectT(_libContent, new Vector2(0, -10), new Vector2(460, 440));
+
+        // ── Vertical scroll slider (right edge of panel) ──────────
+        {
+            Color accentCyan = new Color(0.00f, 0.74f, 0.83f);
+            Color trackColor = new Color(0.06f, 0.08f, 0.14f, 0.90f);
+
+            const float sliderX = 228f;    // right edge
+            const float sliderY = -20f;    // top of track (below title)
+            const float sliderW = 12f;     // narrow track
+            const float sliderH = 400f;    // spans most of panel height
+
+            _libScrollTrack = MakeRect(_libBG.transform, "LibScrollTrack");
+            SetRectT(_libScrollTrack, new Vector2(sliderX, sliderY), new Vector2(sliderW, sliderH));
+            var trackImg = _libScrollTrack.AddComponent<Image>();
+            trackImg.color = trackColor;
+
+            // Fill bar (grows upward from bottom)
+            var fillGO = MakeRect(_libScrollTrack.transform, "Fill");
+            var fillRT = fillGO.GetComponent<RectTransform>();
+            fillRT.anchorMin = Vector2.zero;
+            fillRT.anchorMax = Vector2.one;
+            fillRT.offsetMin = Vector2.zero;
+            fillRT.offsetMax = Vector2.zero;
+            var scrollFillImg = fillGO.AddComponent<Image>();
+            scrollFillImg.color = new Color(accentCyan.r, accentCyan.g, accentCyan.b, 0.20f);
+
+            // Knob (horizontal bar that moves vertically)
+            var knob = MakeRect(_libScrollTrack.transform, "Knob");
+            var knobRT = knob.GetComponent<RectTransform>();
+            knobRT.anchorMin = knobRT.anchorMax = new Vector2(0.5f, 1f);
+            knobRT.sizeDelta = new Vector2(sliderW + 4f, 10f);
+            knobRT.anchoredPosition = Vector2.zero;
+            var knobImg = knob.AddComponent<Image>();
+            knobImg.color = accentCyan;
+
+            // Register vertical slider collider
+            RegSliderColVertical(_libTF,
+                new Vector2(sliderX, sliderY),
+                new Vector2(sliderW + 12f, sliderH),  // wider hit area for easier targeting
+                scrollFillImg, knobRT,
+                0f, 1f, 1f,  // min=0 max=1 init=1 (start at top)
+                (float val) => ApplyLibScroll(val),
+                "LibScroll");
+            _libScrollColIdx = _sliderCols.Count - 1;
+        }
 
         // Red X close button (top-right)
         MakeClickableBtn(_libBG.transform, _libTF, "X",
-            new Color(0.60f, 0.08f, 0.05f, 0.95f), 14, new Vector2(228, 178), new Vector2(28, 28),
+            new Color(0.60f, 0.08f, 0.05f, 0.95f), 14, new Vector2(228, 246), new Vector2(28, 28),
             () => ToggleLibPanel());
 
         _libBG.SetActive(false);
