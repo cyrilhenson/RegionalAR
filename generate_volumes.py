@@ -70,16 +70,16 @@ VOLUME_SIZE = 256          # Voxel grid resolution (256³)
 MESH_TARGET_TRIS = 150_000 # Max triangles per tissue mesh for Quest 3
 
 # Tissue intensity values in the uint8 volume.
-# These MUST match the density ranges in VolumeRenderer.cs:
-#   Bone:        densityMin=0.561  densityMax=1.000  → uint8 143–255
-#   Vasculature: densityMin=0.382  densityMax=0.464  → uint8  97–118
-#   Nerves:      densityMin=0.369  densityMax=0.382  → uint8  94– 97
-#   Muscle:      densityMin=0.356  densityMax=0.369  → uint8  91– 94
+# These MUST match the ANATOMY preset density ranges in VolumeRenderer.cs:
+#   Bone:        densityMin=0.559  densityMax=1.000  → uint8 143–255
+#   Vasculature: densityMin=0.382  densityMax=0.559  → uint8  97–142
+#   Nerves:      densityMin=0.350  densityMax=0.382  → uint8  89– 97
+#   Muscle:      densityMin=0.310  densityMax=0.350  → uint8  79– 89
 # Density = uint8 / 255.  Pick the midpoint of each range.
 INTENSITY_BONE   = 220     # 220/255=0.863  (in Bone range)
-INTENSITY_VESSEL = 108     # 108/255=0.424  (in Vasculature range)
-INTENSITY_NERVE  =  96     #  96/255=0.376  (in Nerves range)
-INTENSITY_MUSCLE =  93     #  93/255=0.365  (in Muscle range)
+INTENSITY_VESSEL = 120     # 120/255=0.471  (in Vasculature range)
+INTENSITY_NERVE  =  94     #  94/255=0.369  (in Nerves range)
+INTENSITY_MUSCLE =  84     #  84/255=0.329  (in Muscle range)
 INTENSITY_BG     = 0       # Background
 
 # BodyParts3D download URLs (tried in order)
@@ -1647,7 +1647,7 @@ def generate_region_volume(region_name, tissue_meshes, output_dir, grid_size=256
         # to ensure visibility in volume rendering.
         if tissue_type == "muscle" and n_voxels > 0:
             print(f"    Thickening muscle ({n_voxels:,} vox)...")
-            mask = _dilate_3d(mask, iterations=3)
+            mask = _dilate_3d(mask, iterations=5)
             n_voxels = int(np.sum(mask))
         elif tissue_type in ("vessel", "nerve") and n_voxels > 0:
             print(f"    Thickening {tissue_type} ({n_voxels:,} vox)...")
@@ -1669,23 +1669,16 @@ def generate_region_volume(region_name, tissue_meshes, output_dir, grid_size=256
         if mask is not None:
             volume[mask] = intensity
 
-    # Add soft gradient falloff around structures for more realistic
-    # volume rendering (structures don't just hard-cut to black)
-    print("  Adding intensity falloff around structures...")
-    occupied = volume > 0
-    if np.any(occupied):
-        # Simple 3D dilation to create a soft border
-        border = _dilate_3d(occupied, iterations=2)
-        # Set border voxels (not already occupied) to dim value
-        border_only = border & ~occupied
-        volume[border_only] = 35  # faint tissue background
+    # NOTE: Soft border falloff removed — intensity 35 (density 0.137) doesn't
+    # fall within any tissue layer range in VolumeRenderer.cs, so those voxels
+    # are invisible and just waste file space.
 
-    # ── Apply Gaussian smoothing if scipy available ──
-    if _HAS_SCIPY:
-        print("  Applying Gaussian smoothing...")
-        vol_float = volume.astype(np.float32)
-        vol_float = ndimage.gaussian_filter(vol_float, sigma=0.8)
-        volume = np.clip(vol_float, 0, 255).astype(np.uint8)
+    # NOTE: Gaussian smoothing is intentionally DISABLED for generated
+    # anatomy volumes. The tissue layer density ranges in VolumeRenderer.cs
+    # are very narrow (e.g. muscle is only uint8 91-94). Gaussian blur
+    # smears edge voxels toward background (0), pushing them out of the
+    # valid range and making structures invisible. The interior fill +
+    # dilation already produce smooth-looking structures.
 
     # ── Export OVOL ──
     export_ovol(volume, vol_path)
