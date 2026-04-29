@@ -50,13 +50,10 @@ public class VolumeRenderer : MonoBehaviour
     }
 
     // HU → normalized: (HU + 1024) / 3072
-    // Ranges are widened on non-adjacent sides so both CT/DICOM and synthetic
-    // anatomy volumes render cleanly:
-    //   Muscle:      low extended to 0.200 (catches synthetic uint8 ~51-94)
-    //   Vasculature: high extended to 0.559 (catches synthetic uint8 ~97-142)
-    //   Bone:        low nudged to 0.559 to stay contiguous
-    // Original HU band boundaries (0.356/0.369/0.382/0.464/0.561) stay as-is
-    // so Head-Neck CTA and user DICOMs still map correctly.
+    // Bone:        HU  700-2048 → 0.561-1.000  (cortical + dense cancellous)
+    // Vasculature: HU  150- 400 → 0.382-0.464  (contrast-enhanced vessels)
+    // Nerves:      HU  110- 150 → 0.369-0.382  (AI-remapped neural tissue)
+    // Muscle:      HU   70- 110 → 0.356-0.369  (AI-remapped muscle groups)
     public TissueLayer[] layers = new TissueLayer[]
     {
         new TissueLayer { name = "Bone",        enabled = true, densityMin = 0.561f, densityMax = 1.000f, color = new Color(0.95f,0.92f,0.85f,1f) },
@@ -158,14 +155,7 @@ public class VolumeRenderer : MonoBehaviour
 
     void ForceLayerDefaults()
     {
-        // Start with DICOM preset (original narrow ranges, works for CT data)
-        ApplyDicomPreset();
-    }
-
-    /// Apply density ranges + colors tuned for CT/DICOM data (Head-Neck CTA,
-    /// user uploads). Narrow HU-derived bands, moderate muscle opacity.
-    public void ApplyDicomPreset()
-    {
+        // Always overwrite with code-defined layers to avoid stale serialized data
         layers = new TissueLayer[]
         {
             new TissueLayer { name = "Bone",        enabled = true, densityMin = 0.561f, densityMax = 1.000f, color = new Color(0.95f,0.92f,0.85f,1f) },
@@ -173,25 +163,7 @@ public class VolumeRenderer : MonoBehaviour
             new TissueLayer { name = "Nerves",      enabled = true, densityMin = 0.369f, densityMax = 0.382f, color = new Color(1f,0.95f,0.2f,0.90f) },
             new TissueLayer { name = "Muscle",      enabled = true, densityMin = 0.356f, densityMax = 0.369f, color = new Color(0.85f,0.35f,0.55f,0.75f) },
         };
-        PushLayersToMaterial();
-        Debug.Log("[RegionalAR] DICOM layer preset applied");
-    }
-
-    /// Apply density ranges + colors tuned for the 8 synthetic anatomy volumes.
-    /// Wider bands to accommodate generated uint8 intensities, higher muscle opacity.
-    /// Muscle floor set to 0.310 (not lower) to avoid catching bilinear
-    /// interpolation artifacts between muscle voxels and background.
-    public void ApplyAnatomyPreset()
-    {
-        layers = new TissueLayer[]
-        {
-            new TissueLayer { name = "Bone",        enabled = true, densityMin = 0.559f, densityMax = 1.000f, color = new Color(0.95f,0.92f,0.85f,1f) },
-            new TissueLayer { name = "Vasculature", enabled = true, densityMin = 0.390f, densityMax = 0.559f, color = new Color(0.95f,0.15f,0.10f,0.95f) },
-            new TissueLayer { name = "Nerves",      enabled = true, densityMin = 0.360f, densityMax = 0.380f, color = new Color(1f,0.95f,0.2f,0.70f) },
-            new TissueLayer { name = "Muscle",      enabled = true, densityMin = 0.310f, densityMax = 0.345f, color = new Color(0.85f,0.35f,0.55f,0.95f) },
-        };
-        PushLayersToMaterial();
-        Debug.Log("[RegionalAR] Anatomy layer preset applied");
+        Debug.Log("[RegionalAR] Layer defaults applied: 4 layers (Bone, Vasc, Nerves, Muscle)");
     }
 
     IEnumerator InitAfterXR()
@@ -223,8 +195,8 @@ public class VolumeRenderer : MonoBehaviour
     Vector3    _stablePos;
     Quaternion _stableRot = Quaternion.identity;
     bool       _stableInit;
-    const float STABLE_POS_SPEED = 35f;  // higher = less lag during movement (was 10)
-    const float STABLE_ROT_SPEED = 35f;
+    const float STABLE_POS_SPEED = 10f;  // lower = more smoothing/less jitter (was 25)
+    const float STABLE_ROT_SPEED = 10f;
 
     // Push cut planes + stabilized matrices to material every frame
     void Update()

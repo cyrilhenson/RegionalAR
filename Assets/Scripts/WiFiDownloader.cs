@@ -198,11 +198,6 @@ public class WiFiDownloader : MonoBehaviour
         if (volumeRenderer == null)
             volumeRenderer = FindObjectOfType<VolumeRenderer>();
 
-        // Save the scene-default volume scale so we can restore it for
-        // non-anatomy volumes (Head-Neck CTA, user DICOMs).
-        if (volumeRenderer != null)
-            _defaultVolumeScale = volumeRenderer.transform.localScale;
-
         // Apply GPU/CPU performance settings (FFR, MSAA, refresh rate, etc.)
         if (FindObjectOfType<PerformanceManager>() == null)
         {
@@ -1593,17 +1588,7 @@ public class WiFiDownloader : MonoBehaviour
             vr.PositionInFrontOfUser();
             vr.ResetCrop();
             vr.ClearAllCutPlanes();
-            // Restore appropriate scale + preset based on active volume type
-            if (IsAnatomySample(_activeScanName))
-            {
-                vr.transform.localScale = Vector3.one * 0.8f;
-                vr.ApplyAnatomyPreset();
-            }
-            else
-            {
-                vr.transform.localScale = _defaultVolumeScale;
-                vr.ApplyDicomPreset();
-            }
+            vr.transform.localScale = Vector3.one;
         }
         // Reset grab state so interaction works immediately
         var hi = FindObjectOfType<HandInteraction>();
@@ -1897,9 +1882,7 @@ public class WiFiDownloader : MonoBehaviour
             _downloadedThisSession = true;
             SetStatus($"Volume loaded! ({new FileInfo(finalPath).Length / 1024}KB)");
             Set3DDebug("LOADED OK");
-            // WiFi uploads are always DICOMs — use DICOM preset + scene scale
-            vr.transform.localScale = _defaultVolumeScale;
-            vr.ApplyDicomPreset();
+            // Reposition volume (WiFi uploads keep scene scale)
             vr.PositionInFrontOfUser();
             yield return new WaitForSeconds(2f);
             if (_wifiBG != null) _wifiBG.SetActive(false);
@@ -2024,12 +2007,11 @@ public class WiFiDownloader : MonoBehaviour
         "thigh_right", "thigh_left", "knee_right", "knee_left",
     };
     static bool IsAnatomySample(string name) => ANATOMY_SAMPLES.Contains(name);
-    Vector3 _defaultVolumeScale = Vector3.one * 0.3f;  // saved from scene on Start
     static readonly string[] SAMPLE_EXTS = { ".vol", ".omsh", ".vmsh", ".nmsh", ".mmsh" };
 
     // Marker version — bump this when adding new bundled samples so
     // existing users get the new ones installed on their next launch.
-    const string SAMPLES_MARKER_VERSION = "6";  // bumped: tighter nerve range, 0.8x anatomy scale
+    const string SAMPLES_MARKER_VERSION = "4";  // bumped: bone-bbox normalization + tissue dilation fixes
 
     IEnumerator InstallBundledSample()
     {
@@ -2260,18 +2242,9 @@ public class WiFiDownloader : MonoBehaviour
             vr.ReloadVolumeSync(entry.path);
             _activeScanName = entry.name;
 
-            // Anatomy samples use wider density ranges + higher muscle opacity;
-            // everything else (Head-Neck CTA, user DICOMs) uses original DICOM preset.
+            // Reset scale for anatomy samples only (Head-Neck and DICOMs keep scene scale)
             if (IsAnatomySample(entry.name))
-            {
-                vr.transform.localScale = Vector3.one * 0.8f;
-                vr.ApplyAnatomyPreset();
-            }
-            else
-            {
-                vr.transform.localScale = _defaultVolumeScale;
-                vr.ApplyDicomPreset();
-            }
+                vr.transform.localScale = Vector3.one;
             vr.PositionInFrontOfUser();
 
             SetStatus($"Loaded: {entry.name} ({entry.sizeBytes / 1024}KB)");
@@ -3211,7 +3184,7 @@ public class WiFiDownloader : MonoBehaviour
         _ctrlCanvas.renderMode = RenderMode.WorldSpace;
         _ctrlCanvas.sortingOrder = 30;
         var ctrlScaler = panelRoot.AddComponent<CanvasScaler>();
-        ctrlScaler.dynamicPixelsPerUnit = 10.0f;  // crisp text at moderate distance
+        ctrlScaler.dynamicPixelsPerUnit = 2.5f;  // sharper text at distance
         panelRoot.AddComponent<PanelStabilizer>();  // smooth tracking jitter
         _ctrlTF = panelRoot.transform;
         Camera cam = Cam();
@@ -3509,7 +3482,7 @@ public class WiFiDownloader : MonoBehaviour
         _libCanvas.renderMode = RenderMode.WorldSpace;
         _libCanvas.sortingOrder = 32;
         var libScaler = panelRoot.AddComponent<CanvasScaler>();
-        libScaler.dynamicPixelsPerUnit = 10.0f;
+        libScaler.dynamicPixelsPerUnit = 2.5f;
         panelRoot.AddComponent<PanelStabilizer>();  // smooth tracking jitter
         _libTF = panelRoot.transform;
         Camera cam = Cam();
