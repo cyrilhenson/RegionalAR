@@ -17,13 +17,13 @@ public class PanelStabilizer : MonoBehaviour
 {
     [Header("Smoothing")]
     [Tooltip("Position smoothing speed. Lower = smoother but laggier. 8-12 is good.")]
-    public float posSpeed = 10f;
+    public float posSpeed = 12f;
 
     [Tooltip("Rotation smoothing speed. Lower = smoother but laggier.")]
-    public float rotSpeed = 10f;
+    public float rotSpeed = 12f;
 
     [Tooltip("Maximum position correction per frame in meters (prevents teleporting)")]
-    public float maxPosStep = 0.003f;
+    public float maxPosStep = 0.0036f;
 
     // Smoothed state
     Vector3    _smoothPos;

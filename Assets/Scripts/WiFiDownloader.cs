@@ -198,6 +198,11 @@ public class WiFiDownloader : MonoBehaviour
         if (volumeRenderer == null)
             volumeRenderer = FindObjectOfType<VolumeRenderer>();
 
+        // Save the scene-default volume scale so we can restore it for
+        // non-anatomy volumes (Head-Neck CTA, user DICOMs).
+        if (volumeRenderer != null)
+            _defaultVolumeScale = volumeRenderer.transform.localScale;
+
         // Apply GPU/CPU performance settings (FFR, MSAA, refresh rate, etc.)
         if (FindObjectOfType<PerformanceManager>() == null)
         {
@@ -253,6 +258,10 @@ public class WiFiDownloader : MonoBehaviour
         yield return new WaitForSeconds(0.5f);
         CacheCamera();
         PositionHintInFront();
+
+        // Wait an extra frame for OVROverlayCanvas to finish its Start()
+        // initialization (creates internal camera, RT, overlay objects).
+        yield return null;
 
         // Auto-open the control panel on startup so the user sees it immediately
         if (!_ctrlOpen)
@@ -1588,7 +1597,11 @@ public class WiFiDownloader : MonoBehaviour
             vr.PositionInFrontOfUser();
             vr.ResetCrop();
             vr.ClearAllCutPlanes();
-            vr.transform.localScale = Vector3.one;
+            // Restore appropriate scale based on active volume type
+            if (IsAnatomySample(_activeScanName))
+                vr.transform.localScale = Vector3.one;
+            else
+                vr.transform.localScale = _defaultVolumeScale;
         }
         // Reset grab state so interaction works immediately
         var hi = FindObjectOfType<HandInteraction>();
@@ -1882,7 +1895,8 @@ public class WiFiDownloader : MonoBehaviour
             _downloadedThisSession = true;
             SetStatus($"Volume loaded! ({new FileInfo(finalPath).Length / 1024}KB)");
             Set3DDebug("LOADED OK");
-            // Reposition volume (WiFi uploads keep scene scale)
+            // WiFi uploads are always DICOMs — restore scene-default scale
+            vr.transform.localScale = _defaultVolumeScale;
             vr.PositionInFrontOfUser();
             yield return new WaitForSeconds(2f);
             if (_wifiBG != null) _wifiBG.SetActive(false);
@@ -2007,6 +2021,7 @@ public class WiFiDownloader : MonoBehaviour
         "thigh_right", "thigh_left", "knee_right", "knee_left",
     };
     static bool IsAnatomySample(string name) => ANATOMY_SAMPLES.Contains(name);
+    Vector3 _defaultVolumeScale = Vector3.one * 0.3f;  // saved from scene on Start
     static readonly string[] SAMPLE_EXTS = { ".vol", ".omsh", ".vmsh", ".nmsh", ".mmsh" };
 
     // Marker version — bump this when adding new bundled samples so
@@ -2242,9 +2257,12 @@ public class WiFiDownloader : MonoBehaviour
             vr.ReloadVolumeSync(entry.path);
             _activeScanName = entry.name;
 
-            // Reset scale for anatomy samples only (Head-Neck and DICOMs keep scene scale)
+            // Anatomy samples use unit scale; everything else (Head-Neck CTA,
+            // user DICOMs) restores the scene-default scale saved on Start.
             if (IsAnatomySample(entry.name))
                 vr.transform.localScale = Vector3.one;
+            else
+                vr.transform.localScale = _defaultVolumeScale;
             vr.PositionInFrontOfUser();
 
             SetStatus($"Loaded: {entry.name} ({entry.sizeBytes / 1024}KB)");
@@ -2696,7 +2714,7 @@ public class WiFiDownloader : MonoBehaviour
         _hintCanvas.renderMode = RenderMode.WorldSpace;
         _hintCanvas.sortingOrder = 33;
         var hintScaler = _hintRoot.AddComponent<CanvasScaler>();
-        hintScaler.dynamicPixelsPerUnit = 2.5f;
+        hintScaler.dynamicPixelsPerUnit = 5.0f;
         _hintRoot.AddComponent<PanelStabilizer>();  // smooth tracking jitter
         Camera cam = Cam();
         if (cam != null) _hintCanvas.worldCamera = cam;
@@ -2706,6 +2724,8 @@ public class WiFiDownloader : MonoBehaviour
         rt.pivot = new Vector2(0.5f, 0.5f);
         _hintRoot.transform.localScale = Vector3.one * 0.0008f;
         _hintTF = _hintRoot.transform;
+
+        AttachOverlayCanvas(_hintRoot);  // compositor overlay for sharp text
 
         CreateProxy(out _hintProxy, out _hintProxyCol, 0.35f, 0.27f, "HintProxy");
 
@@ -2979,7 +2999,7 @@ public class WiFiDownloader : MonoBehaviour
         _licCanvas.renderMode = RenderMode.WorldSpace;
         _licCanvas.sortingOrder = 32;
         var licScaler = panelRoot.AddComponent<CanvasScaler>();
-        licScaler.dynamicPixelsPerUnit = 2.5f;
+        licScaler.dynamicPixelsPerUnit = 5.0f;
         panelRoot.AddComponent<PanelStabilizer>();
         _licTF = panelRoot.transform;
         Camera cam = Cam();
@@ -2989,6 +3009,8 @@ public class WiFiDownloader : MonoBehaviour
         crt.sizeDelta = new Vector2(460, 340);
         crt.pivot = new Vector2(0.5f, 0.5f);
         panelRoot.transform.localScale = Vector3.one * 0.001f;
+
+        AttachOverlayCanvas(panelRoot);  // compositor overlay for sharp text
 
         CreateProxy(out _licProxy, out _licProxyCol, 0.46f, 0.34f, "LicProxy");
 
@@ -3184,7 +3206,7 @@ public class WiFiDownloader : MonoBehaviour
         _ctrlCanvas.renderMode = RenderMode.WorldSpace;
         _ctrlCanvas.sortingOrder = 30;
         var ctrlScaler = panelRoot.AddComponent<CanvasScaler>();
-        ctrlScaler.dynamicPixelsPerUnit = 2.5f;  // sharper text at distance
+        ctrlScaler.dynamicPixelsPerUnit = 5.0f;  // sharper text at distance
         panelRoot.AddComponent<PanelStabilizer>();  // smooth tracking jitter
         _ctrlTF = panelRoot.transform;
         Camera cam = Cam();
@@ -3195,6 +3217,8 @@ public class WiFiDownloader : MonoBehaviour
         crt.sizeDelta = new Vector2(560, 520);
         crt.pivot = new Vector2(0.5f, 0.5f);
         panelRoot.transform.localScale = Vector3.one * 0.001f;
+
+        AttachOverlayCanvas(panelRoot);  // compositor overlay for sharp text
 
         CreateProxy(out _ctrlProxy, out _ctrlProxyCol, 0.56f, 0.52f, "CtrlProxy");
 
@@ -3389,7 +3413,7 @@ public class WiFiDownloader : MonoBehaviour
         _wifiCanvas.renderMode = RenderMode.WorldSpace;
         _wifiCanvas.sortingOrder = 31;
         var wifiScaler = panelRoot.AddComponent<CanvasScaler>();
-        wifiScaler.dynamicPixelsPerUnit = 2.5f;
+        wifiScaler.dynamicPixelsPerUnit = 5.0f;
         panelRoot.AddComponent<PanelStabilizer>();  // smooth tracking jitter
         _wifiTF = panelRoot.transform;   // now holds RectTransform (valid)
         Camera cam = Cam();
@@ -3400,6 +3424,8 @@ public class WiFiDownloader : MonoBehaviour
         crt.sizeDelta = new Vector2(480, 240);
         crt.pivot = new Vector2(0.5f, 0.5f);
         panelRoot.transform.localScale = Vector3.one * 0.001f;
+
+        AttachOverlayCanvas(panelRoot);  // compositor overlay for sharp text
 
         CreateProxy(out _wifiProxy, out _wifiProxyCol, 0.48f, 0.24f, "WiFiProxy");
 
@@ -3482,7 +3508,7 @@ public class WiFiDownloader : MonoBehaviour
         _libCanvas.renderMode = RenderMode.WorldSpace;
         _libCanvas.sortingOrder = 32;
         var libScaler = panelRoot.AddComponent<CanvasScaler>();
-        libScaler.dynamicPixelsPerUnit = 2.5f;
+        libScaler.dynamicPixelsPerUnit = 5.0f;
         panelRoot.AddComponent<PanelStabilizer>();  // smooth tracking jitter
         _libTF = panelRoot.transform;
         Camera cam = Cam();
@@ -3493,6 +3519,8 @@ public class WiFiDownloader : MonoBehaviour
         crt.sizeDelta = new Vector2(500, 520);
         crt.pivot = new Vector2(0.5f, 0.5f);
         panelRoot.transform.localScale = Vector3.one * 0.001f;
+
+        AttachOverlayCanvas(panelRoot);  // compositor overlay for sharp text
 
         CreateProxy(out _libProxy, out _libProxyCol, 0.50f, 0.52f, "LibProxy");
 
@@ -3890,6 +3918,25 @@ public class WiFiDownloader : MonoBehaviour
     {
         if (_markerModeBorder != null) _markerModeBorder.color = on ? accentOrange : borderCyan;
         if (_markerModeBG     != null) _markerModeBG.color     = on ? new Color(0.40f, 0.16f, 0.06f, 0.85f) : btnFill;
+    }
+
+    // ═════════════════════════════════════════════════════════════
+    //  OVR COMPOSITOR OVERLAY (sharp UI independent of scene GPU load)
+    // ═════════════════════════════════════════════════════════════
+
+    /// Attach an OVROverlayCanvas to a panel's root GameObject so the Quest
+    /// compositor renders the UI at native resolution, bypassing FFR and
+    /// dynamic resolution scaling caused by heavy volume raymarching.
+    /// Call once per panel, after Canvas + RectTransform are fully set up.
+    static void AttachOverlayCanvas(GameObject panelRoot, int texSize = 2048)
+    {
+        var overlay = panelRoot.AddComponent<OVROverlayCanvas>();
+        overlay.opacity          = OVROverlayCanvas.DrawMode.Transparent;
+        overlay.shape            = OVROverlayCanvas.CanvasShape.Flat;
+        overlay.maxTextureSize   = texSize;
+        overlay.renderInterval   = 1;          // redraw every frame (UI is interactive)
+        overlay.compositionMode  = OVROverlayCanvas.CompositionMode.DepthTested;
+        Debug.Log($"[RegionalAR] OVROverlayCanvas attached to {panelRoot.name} (tex={texSize})");
     }
 
     // ═════════════════════════════════════════════════════════════
