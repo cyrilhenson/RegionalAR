@@ -865,7 +865,7 @@ public class WiFiDownloader : MonoBehaviour
         Vector3 fwd = cam.transform.forward; fwd.y = 0; fwd.Normalize();
         if (fwd.sqrMagnitude < 0.01f) fwd = Vector3.forward;
         // Panel at eye level minus 15cm — comfortable reading height
-        panelTF.position = cam.transform.position + fwd * 0.9f + Vector3.down * 0.15f;
+        panelTF.position = cam.transform.position + fwd * 0.6f + Vector3.down * 0.15f;
         panelTF.rotation = Quaternion.LookRotation(fwd);
 
         // Snap the stabilizer so there's no lerp-in from the old position
@@ -884,7 +884,7 @@ public class WiFiDownloader : MonoBehaviour
         // Position hint just to the right of where the control panel appears
         Vector3 right = Vector3.Cross(fwd, Vector3.up).normalized;
         _hintRoot.transform.position = cam.transform.position
-            + fwd * 1.2f + right * 0.32f + Vector3.down * 0.10f;
+            + fwd * 0.9f + right * 0.32f + Vector3.down * 0.10f;
         _hintRoot.transform.rotation = Quaternion.LookRotation(fwd);
 
         var stab = _hintRoot.GetComponent<PanelStabilizer>();
@@ -2011,14 +2011,16 @@ public class WiFiDownloader : MonoBehaviour
         "thigh_left",
         "knee_right",
         "knee_left",
+        "spine",
     };
     const string SAMPLE_NAME = "Head-Neck_CTA";  // default auto-load
 
-    /// Returns true for the 8 generated anatomy samples that need scale=1 on load.
+    /// Returns true for the 9 generated anatomy samples that need scale=1 on load.
     /// Head-Neck_CTA and user-uploaded DICOMs keep their existing/scene scale.
     static readonly HashSet<string> ANATOMY_SAMPLES = new HashSet<string> {
         "shoulder_right", "shoulder_left", "hip_right", "hip_left",
         "thigh_right", "thigh_left", "knee_right", "knee_left",
+        "spine",
     };
     static bool IsAnatomySample(string name) => ANATOMY_SAMPLES.Contains(name);
     Vector3 _defaultVolumeScale = Vector3.one * 0.3f;  // saved from scene on Start
@@ -2026,7 +2028,7 @@ public class WiFiDownloader : MonoBehaviour
 
     // Marker version — bump this when adding new bundled samples so
     // existing users get the new ones installed on their next launch.
-    const string SAMPLES_MARKER_VERSION = "4";  // bumped: bone-bbox normalization + tissue dilation fixes
+    const string SAMPLES_MARKER_VERSION = "7";  // bumped: added spine volume
 
     IEnumerator InstallBundledSample()
     {

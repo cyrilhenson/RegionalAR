@@ -2,8 +2,8 @@
 """
 RegionalAR — Anatomy Volume Generator
 ======================================
-Generates 8 sample anatomy volumes (shoulder, hip, thigh, knee × left/right)
-from BodyParts3D OBJ mesh files + optional Visible Human Project STL data.
+Generates 9 sample anatomy volumes (shoulder, hip, thigh, knee × left/right
++ spine midline) from BodyParts3D OBJ mesh files + procedural fallbacks.
 
 Pipeline:
   1. Download BodyParts3D OBJ archive (1,523 structures, CC license)
@@ -230,6 +230,46 @@ REGION_STRUCTURES = {
                          "popliteal_nerve", "sural_nerve",
                          "lateral_sural_cutaneous"],
             "fma_ids": [],
+        },
+    },
+    "spine": {
+        "bone": {
+            # Vertebral column C2–sacrum (axis through coccyx)
+            "keywords": ["cervical_vertebra", "thoracic_vertebra",
+                         "lumbar_vertebra", "sacrum", "coccyx",
+                         "vertebra", "vertebral_body", "vertebral_arch",
+                         "spinous_process", "transverse_process",
+                         "intervertebral_disc", "axis_c2", "c2", "c3",
+                         "c4", "c5", "c6", "c7", "t1", "t2", "t3",
+                         "t4", "t5", "t6", "t7", "t8", "t9", "t10",
+                         "t11", "t12", "l1", "l2", "l3", "l4", "l5"],
+            "fma_ids": [9915, 9139, 9921, 16580],  # vertebral column, sacrum
+        },
+        "muscle": {
+            # Immediate paraspinal muscles only
+            "keywords": ["erector_spinae", "multifidus", "longissimus",
+                         "iliocostalis", "spinalis", "semispinalis",
+                         "rotatores", "interspinales", "intertransversarii",
+                         "quadratus_lumborum", "psoas_major"],
+            "fma_ids": [],
+        },
+        "vessel": {
+            # Major vertebral/spinal arteries
+            "keywords": ["vertebral_artery", "spinal_artery",
+                         "anterior_spinal", "posterior_spinal",
+                         "segmental_artery", "lumbar_artery",
+                         "intercostal_artery", "vertebral_vein",
+                         "basivertebral_vein", "internal_vertebral"],
+            "fma_ids": [3956],  # vertebral artery
+        },
+        "nerve": {
+            # Spinal nerve roots and cord
+            "keywords": ["spinal_cord", "spinal_nerve", "nerve_root",
+                         "dorsal_root", "ventral_root", "cauda_equina",
+                         "cervical_nerve", "thoracic_nerve",
+                         "lumbar_nerve", "sacral_nerve",
+                         "dural_sac", "conus_medullaris"],
+            "fma_ids": [7647],  # spinal cord
         },
     },
 }
@@ -1291,11 +1331,163 @@ def generate_knee_anatomy():
     }
 
 
+def generate_spine_anatomy():
+    """Generate procedural spine anatomy meshes (C2–sacrum)."""
+    bones, muscles, vessels, nerves = [], [], [], []
+
+    # -- Bones: vertebral column C2–sacrum --
+    # 24 vertebrae (7 cervical from C2, 12 thoracic, 5 lumbar) + sacrum
+    # Spine runs from z=+0.35 (C2) down to z=-0.35 (sacrum)
+    vertebra_z = []
+    z = 0.35
+    # C2–C7 (6 cervical, smaller)
+    for i in range(6):
+        v, f = make_ellipsoid([0, 0, z], [0.018, 0.022, 0.012], 8, 8)
+        bones.append((v, f))
+        # Spinous process
+        v2, f2 = make_ellipsoid([0, 0.015, z], [0.006, 0.012, 0.005], 6, 6)
+        bones.append((v2, f2))
+        vertebra_z.append(z)
+        z -= 0.028
+
+    # T1–T12 (12 thoracic, medium)
+    for i in range(12):
+        v, f = make_ellipsoid([0, 0, z], [0.022, 0.026, 0.014], 8, 8)
+        bones.append((v, f))
+        # Spinous process
+        v2, f2 = make_ellipsoid([0, 0.020, z], [0.006, 0.015, 0.005], 6, 6)
+        bones.append((v2, f2))
+        # Transverse processes
+        v3, f3 = make_ellipsoid([0.030, 0.010, z], [0.015, 0.006, 0.005], 6, 6)
+        bones.append((v3, f3))
+        v4, f4 = make_ellipsoid([-0.030, 0.010, z], [0.015, 0.006, 0.005], 6, 6)
+        bones.append((v4, f4))
+        vertebra_z.append(z)
+        z -= 0.030
+
+    # L1–L5 (5 lumbar, larger)
+    for i in range(5):
+        v, f = make_ellipsoid([0, 0, z], [0.028, 0.032, 0.016], 8, 8)
+        bones.append((v, f))
+        # Spinous process
+        v2, f2 = make_ellipsoid([0, 0.022, z], [0.008, 0.016, 0.006], 6, 6)
+        bones.append((v2, f2))
+        # Transverse processes
+        v3, f3 = make_ellipsoid([0.035, 0.008, z], [0.018, 0.006, 0.006], 6, 6)
+        bones.append((v3, f3))
+        v4, f4 = make_ellipsoid([-0.035, 0.008, z], [0.018, 0.006, 0.006], 6, 6)
+        bones.append((v4, f4))
+        vertebra_z.append(z)
+        z -= 0.032
+
+    # Sacrum (triangular, wider at top)
+    sacrum_z = z
+    v, f = make_ellipsoid([0, 0, sacrum_z], [0.035, 0.025, 0.040], 10, 10)
+    bones.append((v, f))
+
+    # -- Muscles: paraspinal (erector spinae, multifidus bilaterally) --
+    # Erector spinae — long bilateral columns flanking the spine
+    for side in [1, -1]:  # right, left
+        # Iliocostalis (lateral column)
+        v, f = make_tube([
+            [side * 0.045, 0.015, 0.30],
+            [side * 0.050, 0.018, 0.10],
+            [side * 0.048, 0.020, -0.10],
+            [side * 0.042, 0.015, -0.30],
+        ], 0.018, 8)
+        muscles.append((v, f))
+        # Longissimus (intermediate column)
+        v, f = make_tube([
+            [side * 0.028, 0.020, 0.30],
+            [side * 0.032, 0.024, 0.10],
+            [side * 0.030, 0.026, -0.10],
+            [side * 0.028, 0.020, -0.30],
+        ], 0.015, 8)
+        muscles.append((v, f))
+        # Multifidus (deep, close to spinous processes)
+        v, f = make_tube([
+            [side * 0.012, 0.022, 0.20],
+            [side * 0.014, 0.026, 0.0],
+            [side * 0.014, 0.028, -0.20],
+            [side * 0.012, 0.022, -0.35],
+        ], 0.010, 8)
+        muscles.append((v, f))
+
+    # Quadratus lumborum (bilateral, lumbar region only)
+    for side in [1, -1]:
+        v, f = make_ellipsoid([side * 0.050, 0.005, -0.22],
+                               [0.018, 0.012, 0.06], 8, 8)
+        muscles.append((v, f))
+
+    # -- Vessels: vertebral arteries (bilateral) --
+    for side in [1, -1]:
+        # Vertebral artery runs through transverse foramina of cervical spine
+        v, f = make_tube([
+            [side * 0.018, -0.010, 0.35],
+            [side * 0.016, -0.008, 0.25],
+            [side * 0.014, -0.005, 0.15],
+        ], 0.005, 6)
+        vessels.append((v, f))
+
+    # Anterior spinal artery (midline, along ventral cord)
+    v, f = make_tube([
+        [0, -0.012, 0.35], [0, -0.012, 0.15],
+        [0, -0.010, -0.05], [0, -0.008, -0.25],
+    ], 0.003, 6)
+    vessels.append((v, f))
+
+    # Segmental / lumbar arteries (small bilateral branches)
+    for i, vz in enumerate(vertebra_z[6:18]):  # thoracic region
+        if i % 2 == 0:  # every other vertebra for performance
+            for side in [1, -1]:
+                v, f = make_tube([
+                    [0, -0.005, vz],
+                    [side * 0.035, -0.005, vz],
+                ], 0.003, 6)
+                vessels.append((v, f))
+
+    # -- Nerves: spinal cord + nerve roots --
+    # Spinal cord (midline)
+    v, f = make_tube([
+        [0, 0.005, 0.35], [0, 0.005, 0.20],
+        [0, 0.004, 0.0], [0, 0.003, -0.15],
+        [0, 0.002, -0.20],  # conus medullaris
+    ], 0.008, 8)
+    nerves.append((v, f))
+
+    # Cauda equina (fans out below conus)
+    for offset in [-0.012, -0.004, 0.004, 0.012]:
+        v, f = make_tube([
+            [offset * 0.5, 0.002, -0.20],
+            [offset, 0.001, -0.28],
+            [offset * 1.5, 0.0, -0.35],
+        ], 0.004, 6)
+        nerves.append((v, f))
+
+    # Spinal nerve roots (bilateral, exiting at each vertebral level)
+    for vz in vertebra_z[::2]:  # every other level for performance
+        for side in [1, -1]:
+            v, f = make_tube([
+                [0, 0.005, vz],
+                [side * 0.025, 0.003, vz - 0.005],
+                [side * 0.045, 0.0, vz - 0.010],
+            ], 0.003, 6)
+            nerves.append((v, f))
+
+    return {
+        "bone": merge_meshes(bones),
+        "muscle": merge_meshes(muscles),
+        "vessel": merge_meshes(vessels),
+        "nerve": merge_meshes(nerves),
+    }
+
+
 PROCEDURAL_GENERATORS = {
     "shoulder": generate_shoulder_anatomy,
     "hip": generate_hip_anatomy,
     "thigh": generate_thigh_anatomy,
     "knee": generate_knee_anatomy,
+    "spine": generate_spine_anatomy,
 }
 
 
@@ -1497,13 +1689,15 @@ def _is_right_side(name):
 
 def load_region_from_bodyparts3d(bp3d_dir, region_name):
     """Load meshes for a region from BodyParts3D OBJ/STL files.
-    Only loads RIGHT-side structures (plus midline/unspecified ones).
-    The caller generates left by mirroring right."""
+    For paired regions: only loads RIGHT-side structures (plus midline).
+    For midline regions (spine): loads ALL sides (both L+R included).
+    The caller generates left by mirroring right for paired regions."""
     print(f"\n  Loading {region_name} structures from BodyParts3D...")
     obj_files = find_mesh_files(bp3d_dir)
     print(f"  Found {len(obj_files)} total mesh files")
 
     region_spec = REGION_STRUCTURES[region_name]
+    is_midline = region_name in MIDLINE_REGIONS
     result = {}
 
     for tissue_type in ["bone", "muscle", "vessel", "nerve"]:
@@ -1513,11 +1707,13 @@ def load_region_from_bodyparts3d(bp3d_dir, region_name):
 
         for name, path in obj_files.items():
             if match_structure(name, region_spec[tissue_type]):
-                # Filter: only include right-side or midline structures
-                side = _is_right_side(name)
-                if side is False:  # left-side → skip
-                    skipped_left += 1
-                    continue
+                # Midline regions include both sides; paired regions
+                # skip left-side structures (left generated by mirroring)
+                if not is_midline:
+                    side = _is_right_side(name)
+                    if side is False:  # left-side → skip
+                        skipped_left += 1
+                        continue
 
                 if path.lower().endswith('.stl'):
                     verts, faces = load_stl(path)
@@ -1693,19 +1889,23 @@ def generate_region_volume(region_name, tissue_meshes, output_dir, grid_size=256
     return vol_path
 
 
+MIDLINE_REGIONS = {"spine"}  # regions that produce a single volume (no L/R mirror)
+
 def generate_all_volumes(output_dir, use_bodyparts3d=False, bp3d_cache=None,
                          regions=None, grid_size=256):
-    """Generate all 8 anatomy volumes (4 regions × left/right).
+    """Generate anatomy volumes for all requested regions.
+    Paired regions (shoulder, hip, thigh, knee) produce left+right via mirroring.
+    Midline regions (spine) produce a single volume.
 
     Args:
         output_dir: where to write output files
         use_bodyparts3d: if True, download and use real BodyParts3D meshes
         bp3d_cache: cache directory for BodyParts3D download
-        regions: list of regions to generate (default: all 4)
+        regions: list of regions to generate (default: all 5)
         grid_size: voxel resolution
     """
     if regions is None:
-        regions = ["shoulder", "hip", "thigh", "knee"]
+        regions = ["shoulder", "hip", "thigh", "knee", "spine"]
 
     os.makedirs(output_dir, exist_ok=True)
 
@@ -1777,25 +1977,29 @@ def generate_all_volumes(output_dir, use_bodyparts3d=False, bp3d_cache=None,
             gen_func = PROCEDURAL_GENERATORS[region]
             tissue_meshes = gen_func()
 
-        # Generate RIGHT side
-        right_name = f"{region}_right"
-        vol_path = generate_region_volume(right_name, tissue_meshes,
-                                          output_dir, grid_size)
+        if region in MIDLINE_REGIONS:
+            # Midline regions produce a single volume (no left/right)
+            generate_region_volume(region, tissue_meshes,
+                                   output_dir, grid_size)
+        else:
+            # Paired regions: generate right, then mirror for left
+            right_name = f"{region}_right"
+            vol_path = generate_region_volume(right_name, tissue_meshes,
+                                              output_dir, grid_size)
 
-        if vol_path:
-            # Generate LEFT side by mirroring
-            left_name = f"{region}_left"
-            print(f"\n  Mirroring {right_name} → {left_name}...")
-            mirrored = {}
-            for tissue in ["bone", "muscle", "vessel", "nerve"]:
-                v, f = tissue_meshes.get(tissue, (None, None))
-                if v is not None:
-                    mv, mf = mirror_mesh_x(v, f)
-                    mirrored[tissue] = (mv, mf)
-                else:
-                    mirrored[tissue] = (None, None)
+            if vol_path:
+                left_name = f"{region}_left"
+                print(f"\n  Mirroring {right_name} → {left_name}...")
+                mirrored = {}
+                for tissue in ["bone", "muscle", "vessel", "nerve"]:
+                    v, f = tissue_meshes.get(tissue, (None, None))
+                    if v is not None:
+                        mv, mf = mirror_mesh_x(v, f)
+                        mirrored[tissue] = (mv, mf)
+                    else:
+                        mirrored[tissue] = (None, None)
 
-            generate_region_volume(left_name, mirrored, output_dir, grid_size)
+                generate_region_volume(left_name, mirrored, output_dir, grid_size)
 
     # ── Summary ──
     print(f"\n{'='*60}")
@@ -1830,7 +2034,7 @@ def main():
     parser.add_argument("--catalog", action="store_true",
                         help="List available BodyParts3D structures and exit")
     parser.add_argument("--region", type=str, default=None,
-                        help="Generate only this region (shoulder/hip/thigh/knee)")
+                        help="Generate only this region (shoulder/hip/thigh/knee/spine)")
     parser.add_argument("--grid-size", type=int, default=256,
                         help="Voxel grid resolution (default: 256)")
     parser.add_argument("--cache", type=str, default=None,
@@ -1856,7 +2060,7 @@ def main():
     print("╚════════════════════════════════════════════════════════════╝")
     print(f"  Mode:       {'Procedural (test)' if not use_bp3d else 'BodyParts3D + procedural'}")
     print(f"  Grid size:  {args.grid_size}³")
-    print(f"  Regions:    {', '.join(regions) if regions else 'all 4'}")
+    print(f"  Regions:    {', '.join(regions) if regions else 'all 5'}")
     print(f"  Output:     {args.output}")
     print(f"  trimesh:    {'YES' if _HAS_TRIMESH else 'NO (basic decimation)'}")
     print(f"  scipy:      {'YES' if _HAS_SCIPY else 'NO (no smoothing)'}")
