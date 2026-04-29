@@ -2001,8 +2001,10 @@ public class WiFiDownloader : MonoBehaviour
     //  BUNDLED SAMPLE — first-launch copy from StreamingAssets
     // ═════════════════════════════════════════════════════════════
     // All bundled samples in StreamingAssets — first entry is the default auto-load.
+    // Bundled samples — order here controls library display order (top-down anatomical).
     static readonly string[] BUNDLED_SAMPLES = {
         "Head-Neck_CTA",
+        "spine",
         "shoulder_right",
         "shoulder_left",
         "hip_right",
@@ -2011,7 +2013,6 @@ public class WiFiDownloader : MonoBehaviour
         "thigh_left",
         "knee_right",
         "knee_left",
-        "spine",
     };
     const string SAMPLE_NAME = "Head-Neck_CTA";  // default auto-load
 
@@ -2023,6 +2024,25 @@ public class WiFiDownloader : MonoBehaviour
         "spine",
     };
     static bool IsAnatomySample(string name) => ANATOMY_SAMPLES.Contains(name);
+
+    // ALL-CAPS display names for library panel readability
+    static readonly Dictionary<string, string> DISPLAY_NAMES = new Dictionary<string, string> {
+        { "Head-Neck_CTA", "HEADNECK" },
+        { "spine",         "SPINE" },
+        { "shoulder_right","SHOULDER R" },
+        { "shoulder_left", "SHOULDER L" },
+        { "hip_right",     "HIP R" },
+        { "hip_left",      "HIP L" },
+        { "thigh_right",   "THIGH R" },
+        { "thigh_left",    "THIGH L" },
+        { "knee_right",    "KNEE R" },
+        { "knee_left",     "KNEE L" },
+    };
+    static string DisplayName(string internalName)
+    {
+        if (DISPLAY_NAMES.TryGetValue(internalName, out string dn)) return dn;
+        return internalName.ToUpper();  // fallback: uppercase the raw name
+    }
     Vector3 _defaultVolumeScale = Vector3.one * 0.3f;  // saved from scene on Start
     static readonly string[] SAMPLE_EXTS = { ".vol", ".omsh", ".vmsh", ".nmsh", ".mmsh" };
 
@@ -2239,6 +2259,27 @@ public class WiFiDownloader : MonoBehaviour
         {
             Debug.LogWarning($"[RegionalAR] LoadScanIndex failed: {ex.Message}");
         }
+
+        // Sort: bundled samples first in anatomical top-down order, then user scans by date
+        SortLibraryEntries();
+    }
+
+    void SortLibraryEntries()
+    {
+        // Build priority lookup from BUNDLED_SAMPLES order
+        var priority = new Dictionary<string, int>();
+        for (int i = 0; i < BUNDLED_SAMPLES.Length; i++)
+            priority[BUNDLED_SAMPLES[i]] = i;
+
+        _scanEntries.Sort((a, b) =>
+        {
+            bool aB = priority.ContainsKey(a.name);
+            bool bB = priority.ContainsKey(b.name);
+            if (aB && bB) return priority[a.name].CompareTo(priority[b.name]);
+            if (aB) return -1;  // bundled before user scans
+            if (bB) return  1;
+            return string.Compare(a.date, b.date, StringComparison.Ordinal); // user scans by date
+        });
     }
 
     void LoadScanFromLibrary(int idx)
@@ -2247,7 +2288,7 @@ public class WiFiDownloader : MonoBehaviour
         var entry = _scanEntries[idx];
         if (!File.Exists(entry.path))
         {
-            SetStatus($"Scan file missing: {entry.name}", true);
+            SetStatus($"Scan file missing: {DisplayName(entry.name)}", true);
             return;
         }
 
@@ -2267,7 +2308,7 @@ public class WiFiDownloader : MonoBehaviour
                 vr.transform.localScale = _defaultVolumeScale;
             vr.PositionInFrontOfUser();
 
-            SetStatus($"Loaded: {entry.name} ({entry.sizeBytes / 1024}KB)");
+            SetStatus($"Loaded: {DisplayName(entry.name)} ({entry.sizeBytes / 1024}KB)");
             // Close library panel
             ToggleLibPanel();
         }
@@ -2559,7 +2600,7 @@ public class WiFiDownloader : MonoBehaviour
         {
             float y = yStart - i * rowH;
             var e = _scanEntries[i];
-            string label = $"{e.name}  ({e.sizeBytes / (1024 * 1024)}MB)  {e.date}";
+            string label = $"{DisplayName(e.name)}  ({e.sizeBytes / (1024 * 1024)}MB)  {e.date}";
             bool isActive = e.name == _activeScanName;
 
             int capturedIdx = i;

@@ -1332,146 +1332,155 @@ def generate_knee_anatomy():
 
 
 def generate_spine_anatomy():
-    """Generate procedural spine anatomy meshes (C2–sacrum)."""
+    """Generate procedural spine anatomy meshes (C2–sacrum).
+
+    All dimensions scaled ~2.5x from anatomical proportions to fill the
+    [-0.5,0.5]³ voxel volume comparably to the other procedural regions
+    (shoulder, hip, etc.), which use similarly inflated radii.
+    """
     bones, muscles, vessels, nerves = [], [], [], []
 
     # -- Bones: vertebral column C2–sacrum --
     # 24 vertebrae (7 cervical from C2, 12 thoracic, 5 lumbar) + sacrum
-    # Spine runs from z=+0.35 (C2) down to z=-0.35 (sacrum)
+    # Spine runs from z=+0.40 (C2) down to z~-0.40 (sacrum)
     vertebra_z = []
-    z = 0.35
-    # C2–C7 (6 cervical, smaller)
+    z = 0.40
+    # C2–C7 (6 cervical)
     for i in range(6):
-        v, f = make_ellipsoid([0, 0, z], [0.018, 0.022, 0.012], 8, 8)
+        # Vertebral body
+        v, f = make_ellipsoid([0, 0, z], [0.045, 0.055, 0.025], 12, 12)
         bones.append((v, f))
         # Spinous process
-        v2, f2 = make_ellipsoid([0, 0.015, z], [0.006, 0.012, 0.005], 6, 6)
+        v2, f2 = make_ellipsoid([0, 0.040, z], [0.015, 0.030, 0.012], 8, 8)
         bones.append((v2, f2))
-        vertebra_z.append(z)
-        z -= 0.028
-
-    # T1–T12 (12 thoracic, medium)
-    for i in range(12):
-        v, f = make_ellipsoid([0, 0, z], [0.022, 0.026, 0.014], 8, 8)
-        bones.append((v, f))
-        # Spinous process
-        v2, f2 = make_ellipsoid([0, 0.020, z], [0.006, 0.015, 0.005], 6, 6)
-        bones.append((v2, f2))
-        # Transverse processes
-        v3, f3 = make_ellipsoid([0.030, 0.010, z], [0.015, 0.006, 0.005], 6, 6)
+        # Transverse processes (cervical — smaller)
+        v3, f3 = make_ellipsoid([0.050, 0.020, z], [0.025, 0.012, 0.010], 8, 8)
         bones.append((v3, f3))
-        v4, f4 = make_ellipsoid([-0.030, 0.010, z], [0.015, 0.006, 0.005], 6, 6)
-        bones.append((v4, f4))
-        vertebra_z.append(z)
-        z -= 0.030
-
-    # L1–L5 (5 lumbar, larger)
-    for i in range(5):
-        v, f = make_ellipsoid([0, 0, z], [0.028, 0.032, 0.016], 8, 8)
-        bones.append((v, f))
-        # Spinous process
-        v2, f2 = make_ellipsoid([0, 0.022, z], [0.008, 0.016, 0.006], 6, 6)
-        bones.append((v2, f2))
-        # Transverse processes
-        v3, f3 = make_ellipsoid([0.035, 0.008, z], [0.018, 0.006, 0.006], 6, 6)
-        bones.append((v3, f3))
-        v4, f4 = make_ellipsoid([-0.035, 0.008, z], [0.018, 0.006, 0.006], 6, 6)
+        v4, f4 = make_ellipsoid([-0.050, 0.020, z], [0.025, 0.012, 0.010], 8, 8)
         bones.append((v4, f4))
         vertebra_z.append(z)
         z -= 0.032
 
-    # Sacrum (triangular, wider at top)
+    # T1–T12 (12 thoracic, medium)
+    for i in range(12):
+        v, f = make_ellipsoid([0, 0, z], [0.055, 0.065, 0.028], 12, 12)
+        bones.append((v, f))
+        # Spinous process (thoracic — angled down)
+        v2, f2 = make_ellipsoid([0, 0.050, z - 0.008], [0.015, 0.035, 0.012], 8, 8)
+        bones.append((v2, f2))
+        # Transverse processes
+        v3, f3 = make_ellipsoid([0.070, 0.025, z], [0.035, 0.014, 0.012], 8, 8)
+        bones.append((v3, f3))
+        v4, f4 = make_ellipsoid([-0.070, 0.025, z], [0.035, 0.014, 0.012], 8, 8)
+        bones.append((v4, f4))
+        vertebra_z.append(z)
+        z -= 0.034
+
+    # L1–L5 (5 lumbar, largest)
+    for i in range(5):
+        v, f = make_ellipsoid([0, 0, z], [0.070, 0.080, 0.032], 12, 12)
+        bones.append((v, f))
+        # Spinous process (lumbar — broad and flat)
+        v2, f2 = make_ellipsoid([0, 0.055, z], [0.020, 0.038, 0.014], 8, 8)
+        bones.append((v2, f2))
+        # Transverse processes (lumbar — long)
+        v3, f3 = make_ellipsoid([0.085, 0.020, z], [0.040, 0.014, 0.014], 8, 8)
+        bones.append((v3, f3))
+        v4, f4 = make_ellipsoid([-0.085, 0.020, z], [0.040, 0.014, 0.014], 8, 8)
+        bones.append((v4, f4))
+        vertebra_z.append(z)
+        z -= 0.036
+
+    # Sacrum (fused triangular mass)
     sacrum_z = z
-    v, f = make_ellipsoid([0, 0, sacrum_z], [0.035, 0.025, 0.040], 10, 10)
+    v, f = make_ellipsoid([0, 0, sacrum_z], [0.080, 0.060, 0.075], 12, 12)
     bones.append((v, f))
 
     # -- Muscles: paraspinal (erector spinae, multifidus bilaterally) --
-    # Erector spinae — long bilateral columns flanking the spine
-    for side in [1, -1]:  # right, left
-        # Iliocostalis (lateral column)
+    for side in [1, -1]:
+        # Iliocostalis (lateral column — thick)
         v, f = make_tube([
-            [side * 0.045, 0.015, 0.30],
-            [side * 0.050, 0.018, 0.10],
-            [side * 0.048, 0.020, -0.10],
-            [side * 0.042, 0.015, -0.30],
-        ], 0.018, 8)
+            [side * 0.10, 0.035, 0.35],
+            [side * 0.11, 0.040, 0.10],
+            [side * 0.10, 0.045, -0.10],
+            [side * 0.09, 0.035, -0.35],
+        ], 0.035, 10)
         muscles.append((v, f))
         # Longissimus (intermediate column)
         v, f = make_tube([
-            [side * 0.028, 0.020, 0.30],
-            [side * 0.032, 0.024, 0.10],
-            [side * 0.030, 0.026, -0.10],
-            [side * 0.028, 0.020, -0.30],
-        ], 0.015, 8)
+            [side * 0.065, 0.050, 0.35],
+            [side * 0.070, 0.058, 0.10],
+            [side * 0.068, 0.060, -0.10],
+            [side * 0.065, 0.050, -0.35],
+        ], 0.030, 10)
         muscles.append((v, f))
         # Multifidus (deep, close to spinous processes)
         v, f = make_tube([
-            [side * 0.012, 0.022, 0.20],
-            [side * 0.014, 0.026, 0.0],
-            [side * 0.014, 0.028, -0.20],
-            [side * 0.012, 0.022, -0.35],
-        ], 0.010, 8)
+            [side * 0.030, 0.055, 0.25],
+            [side * 0.035, 0.065, 0.0],
+            [side * 0.035, 0.068, -0.20],
+            [side * 0.030, 0.055, -0.38],
+        ], 0.022, 10)
         muscles.append((v, f))
 
     # Quadratus lumborum (bilateral, lumbar region only)
     for side in [1, -1]:
-        v, f = make_ellipsoid([side * 0.050, 0.005, -0.22],
-                               [0.018, 0.012, 0.06], 8, 8)
+        v, f = make_ellipsoid([side * 0.11, 0.010, -0.22],
+                               [0.035, 0.025, 0.10], 10, 10)
         muscles.append((v, f))
 
     # -- Vessels: vertebral arteries (bilateral) --
     for side in [1, -1]:
-        # Vertebral artery runs through transverse foramina of cervical spine
         v, f = make_tube([
-            [side * 0.018, -0.010, 0.35],
-            [side * 0.016, -0.008, 0.25],
-            [side * 0.014, -0.005, 0.15],
-        ], 0.005, 6)
+            [side * 0.040, -0.025, 0.40],
+            [side * 0.035, -0.020, 0.30],
+            [side * 0.030, -0.012, 0.15],
+        ], 0.012, 8)
         vessels.append((v, f))
 
     # Anterior spinal artery (midline, along ventral cord)
     v, f = make_tube([
-        [0, -0.012, 0.35], [0, -0.012, 0.15],
-        [0, -0.010, -0.05], [0, -0.008, -0.25],
-    ], 0.003, 6)
+        [0, -0.030, 0.40], [0, -0.030, 0.15],
+        [0, -0.025, -0.05], [0, -0.020, -0.30],
+    ], 0.008, 8)
     vessels.append((v, f))
 
-    # Segmental / lumbar arteries (small bilateral branches)
+    # Segmental / lumbar arteries (bilateral branches at thoracic levels)
     for i, vz in enumerate(vertebra_z[6:18]):  # thoracic region
-        if i % 2 == 0:  # every other vertebra for performance
+        if i % 2 == 0:
             for side in [1, -1]:
                 v, f = make_tube([
-                    [0, -0.005, vz],
-                    [side * 0.035, -0.005, vz],
-                ], 0.003, 6)
+                    [0, -0.012, vz],
+                    [side * 0.080, -0.012, vz],
+                ], 0.007, 6)
                 vessels.append((v, f))
 
     # -- Nerves: spinal cord + nerve roots --
-    # Spinal cord (midline)
+    # Spinal cord (midline — substantial tube)
     v, f = make_tube([
-        [0, 0.005, 0.35], [0, 0.005, 0.20],
-        [0, 0.004, 0.0], [0, 0.003, -0.15],
-        [0, 0.002, -0.20],  # conus medullaris
-    ], 0.008, 8)
+        [0, 0.012, 0.40], [0, 0.012, 0.20],
+        [0, 0.010, 0.0], [0, 0.008, -0.15],
+        [0, 0.005, -0.22],  # conus medullaris
+    ], 0.018, 10)
     nerves.append((v, f))
 
     # Cauda equina (fans out below conus)
-    for offset in [-0.012, -0.004, 0.004, 0.012]:
+    for offset in [-0.025, -0.010, 0.010, 0.025]:
         v, f = make_tube([
-            [offset * 0.5, 0.002, -0.20],
-            [offset, 0.001, -0.28],
-            [offset * 1.5, 0.0, -0.35],
-        ], 0.004, 6)
+            [offset * 0.5, 0.005, -0.22],
+            [offset, 0.003, -0.30],
+            [offset * 1.5, 0.0, -0.40],
+        ], 0.010, 8)
         nerves.append((v, f))
 
     # Spinal nerve roots (bilateral, exiting at each vertebral level)
-    for vz in vertebra_z[::2]:  # every other level for performance
+    for vz in vertebra_z[::2]:
         for side in [1, -1]:
             v, f = make_tube([
-                [0, 0.005, vz],
-                [side * 0.025, 0.003, vz - 0.005],
-                [side * 0.045, 0.0, vz - 0.010],
-            ], 0.003, 6)
+                [0, 0.012, vz],
+                [side * 0.055, 0.008, vz - 0.010],
+                [side * 0.095, 0.0, vz - 0.020],
+            ], 0.008, 8)
             nerves.append((v, f))
 
     return {
